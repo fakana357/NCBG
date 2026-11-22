@@ -1,0 +1,10 @@
+{
+  "name": "night-city-battlegrounds-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multiplayer server for Night City Battlegrounds",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}
