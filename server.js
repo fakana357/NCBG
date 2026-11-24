@@ -37,12 +37,22 @@ const cleanName = s => String(s || '').replace(/[<>&"'`]/g, '').trim().slice(0, 
 const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c; do { c = Array.from({ length: 4 }, () => A[crypto.randomInt(A.length)]).join(''); } while (rooms.has(c)); return c; };
 
 // ---------- rooms ----------
-function roomView(r) { return { t: 'room', code: r.code, host: r.host, fillBots: r.fillBots, players: r.members.map(c => ({ name: c.name, me: false, id: c.pid })) }; }
-function pushRoom(r) { for (const c of r.members) { const v = roomView(r); v.players.forEach(p => { p.me = p.id === c.pid; }); v.isHost = r.host === c.pid; send(c, v); } }
+function roomView(r) { return { t: 'room', code: r.code, host: r.host, fillBots: r.fillBots, players: r.members.map(c => ({ name: c.name, me: false, id: c.pid, ready: !!c.ready })) }; }
+function pushRoom(r) { for (const c of r.members) { const v = roomView(r); v.players.forEach(p => { p.me = p.id === c.pid; }); v.isHost = r.host === c.pid; send(c, v); } pushRooms(); }
+function roomList() { return [...rooms.values()].filter(r => !r.match && r.members.length).map(r => ({ code: r.code, host: (r.members.find(c => c.pid === r.host) || r.members[0]).name, count: r.members.length, fillBots: r.fillBots })); }
+function pushRooms() { clearTimeout(pushRooms.t); pushRooms.t = setTimeout(() => { const l = roomList(); for (const c of clients.values()) if (c.ws && !c.match && !c.room) send(c, { t: 'rooms', rooms: l }); }, 50); }
+const chatText = s => String(s || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+function chat(c, text) {
+  text = chatText(text); if (!text) return;
+  const now = Date.now(); c.chatT = (c.chatT || []).filter(t => now - t < 10000); if (c.chatT.length >= 8) return; c.chatT.push(now);
+  const msg = { t: 'chat', from: c.name, text, ts: now };
+  if (c.match) c.match.seats.forEach(x => { if (x.match === c.match) send(x, msg); });
+  else if (c.room && rooms.get(c.room)) rooms.get(c.room).members.forEach(x => send(x, msg));
+}
 function leaveRoom(c) {
   const r = c.room && rooms.get(c.room); c.room = null; if (!r || r.match) return;
   r.members = r.members.filter(x => x !== c);
-  if (!r.members.length) { rooms.delete(r.code); return; }
+  if (!r.members.length) { rooms.delete(r.code); pushRooms(); return; }
   if (r.host === c.pid) r.host = r.members[0].pid;
   pushRoom(r);
 }
@@ -71,16 +81,18 @@ function startMatch(members, fillBots, room) {
   members.forEach((c, i) => { c.match = m; c.seat = i; send(c, { t: 'matchStart' }); });
   w.on('message', d => {
     if (d.end) return endMatch(m);
-    send(m.seats[d.to], d.msg);
+    const c = m.seats[d.to]; if (c && c.match === m) send(c, d.msg);
   });
   w.on('error', e => { console.error('match crashed', e); m.seats.forEach(c => send(c, { t: 'error', text: 'The match crashed.' })); endMatch(m); });
   if (room) room.match = m;
+  pushRooms();
 }
 function endMatch(m) {
   if (!matches.has(m)) return; matches.delete(m);
   m.w.terminate();
   m.seats.forEach(c => { if (c.match === m) { c.match = null; c.seat = null; } });
-  if (m.room) { m.room.match = null; m.room.members = m.room.members.filter(c => c.ws); if (m.room.members.length) pushRoom(m.room); else rooms.delete(m.room.code); }
+  if (m.room) { m.room.match = null; m.room.members = m.room.members.filter(c => c.ws && c.room === m.room.code); m.room.members.forEach(c => { c.ready = false; }); if (m.room.members.length) { if (!m.room.members.some(c => c.pid === m.room.host)) m.room.host = m.room.members[0].pid; pushRoom(m.room); } else rooms.delete(m.room.code); }
+  pushRooms();
 }
 
 // ---------- sockets ----------
@@ -98,6 +110,7 @@ wss.on('connection', ws => {
       send(c, { t: 'welcome', token: c.token, inMatch: !!c.match });
       if (c.match) c.match.w.postMessage({ seat: c.seat, sys: 'reconnect' });
       else if (c.room && rooms.get(c.room)) pushRoom(rooms.get(c.room));
+      else send(c, { t: 'rooms', rooms: roomList() });
       return;
     }
     if (!c) return;
@@ -107,7 +120,7 @@ wss.on('connection', ws => {
       case 'unqueue': leaveQueue(c); send(c, { t: 'left' }); break;
       case 'create': {
         if (c.match) break; leaveQueue(c); leaveRoom(c);
-        const r = { code: newCode(), host: c.pid, members: [c], fillBots: true, match: null };
+        c.ready = false; const r = { code: newCode(), host: c.pid, members: [c], fillBots: true, match: null };
         rooms.set(r.code, r); c.room = r.code; pushRoom(r); break;
       }
       case 'join': {
@@ -116,17 +129,21 @@ wss.on('connection', ws => {
         if (!r) { send(c, { t: 'error', text: 'Room not found.' }); break; }
         if (r.match) { send(c, { t: 'error', text: 'That game already started.' }); break; }
         if (r.members.length >= MAX_PLAYERS) { send(c, { t: 'error', text: 'Room is full.' }); break; }
-        leaveQueue(c); leaveRoom(c); r.members.push(c); c.room = r.code; pushRoom(r); break;
+        leaveQueue(c); leaveRoom(c); c.ready = false; r.members.push(c); c.room = r.code; pushRoom(r); break;
       }
-      case 'leave': leaveRoom(c); leaveQueue(c); send(c, { t: 'left' }); break;
+      case 'leave': leaveRoom(c); leaveQueue(c); send(c, { t: 'left' }); send(c, { t: 'rooms', rooms: roomList() }); break;
       case 'fill': { const r = rooms.get(c.room); if (r && r.host === c.pid && !r.match) { r.fillBots = !!msg.on; pushRoom(r); } break; }
       case 'start': {
         const r = rooms.get(c.room);
         if (!r || r.host !== c.pid || r.match) break;
         if (!r.fillBots && r.members.length < 2) { send(c, { t: 'error', text: 'Need at least 2 players without bots.' }); break; }
+        if (r.members.some(x => x.pid !== r.host && !x.ready)) { send(c, { t: 'error', text: 'Not everyone is ready.' }); break; }
         startMatch(r.members.slice(), r.fillBots, r); break;
       }
-      case 'quit': if (c.match) { c.match.w.postMessage({ seat: c.seat, sys: 'disconnect' }); c.match = null; c.seat = null; } break;
+      case 'ready': { if (c.match) { c.match.w.postMessage({ seat: c.seat, msg }); break; } const r = rooms.get(c.room); if (r && !r.match) { c.ready = !!msg.on; pushRoom(r); } break; }
+      case 'chat': chat(c, msg.text); break;
+      case 'rooms': send(c, { t: 'rooms', rooms: roomList() }); break;
+      case 'quit': if (c.match) { c.match.w.postMessage({ seat: c.seat, sys: 'disconnect' }); c.match = null; c.seat = null; c.room = null; send(c, { t: 'rooms', rooms: roomList() }); } break;
       default: if (c.match) c.match.w.postMessage({ seat: c.seat, msg });
     }
   });

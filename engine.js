@@ -674,14 +674,14 @@ Hh('kade', 'Kade Ortega', 8, { name: 'Biotech Venture', cost: 1, text: 'Gain 1 M
 
 // ---------------- shop ----------------
 const HERO_CLANS = { hanako: 'ARA', yorinobu: 'ARA', saburo: 'ARA', goro: 'TYG', wakako: 'TYG', royce: 'MAE', smasher: 'MAE', meredith: 'MIL', reed: 'MIL', panam: 'ALD', river: 'ALD', jackie: 'VAL', v: 'VAL', placide: 'VDB', brigitte: 'VDB', alt: 'VDB', judy: 'MOX', evelyn: 'MOX', sasquatch: 'ANI', rhino: 'ANI', lena: 'BIO', kade: 'BIO' };
-for (const id in HERO_CLANS) { const h = HEROES[id]; if (!h) continue; h.clan = HERO_CLANS[id]; h.power.text += ` Clan: ${TRIBES[h.clan].name} show up more often in your Tavern and arrive with +1/+1.`; }
+for (const id in HERO_CLANS) { const h = HEROES[id]; if (!h) continue; h.clan = HERO_CLANS[id]; }
 function drawMinion(p) {
   const cands = CARD_LIST.filter(c => c.tier <= p.tier && inLobby(c) && G.pool[c.id] > 0);
-  const clan = p.hero && p.hero.clan; const w = c => G.pool[c.id] * (clan && c.tribe === clan ? 1.6 : 1);
+  const clan = p.hero && p.hero.clan; const w = c => G.pool[c.id];
   let total = 0; for (const c of cands) total += w(c);
   if (!total) return null;
   let r = Math.random() * total;
-  for (const c of cands) { r -= w(c); if (r < 0) { G.pool[c.id]--; const m = makeMinion(c.id); const tb = Math.floor(1.5 * (p.tier - 1)) + (p.hero.id === 'hands' ? 1 : 0) + (clan && c.tribe === clan ? 1 : 0); buff(m, p.tavBuff.a + tb, p.tavBuff.h + tb); return m; } }
+  for (const c of cands) { r -= w(c); if (r < 0) { G.pool[c.id]--; const m = makeMinion(c.id); const tb = Math.floor(1.5 * (p.tier - 1)) + (p.hero.id === 'hands' ? 1 : 0); buff(m, p.tavBuff.a + tb, p.tavBuff.h + tb); return m; } }
   return null;
 }
 function rollOffers(mk) { const r = Math.random(); const n = r < .1 ? 3 : r < .35 ? 2 : 1; return Array.from({ length: n }, mk); }
@@ -730,7 +730,7 @@ function actBuyWare(p, i) {
 function actSell(p, idx) {
   const m = p.board[idx]; if (!m) return false;
   p.board.splice(idx, 1); returnToPool(m); syncRam(p);
-  if (m.id !== 'tok_clone') p.gold = Math.min(p.gold + 1, 99);
+  if (m.id !== 'tok_clone') p.gold = Math.min(p.gold + 3, 99);
   if (p.hero.power.onSell) p.hero.power.onSell(p, m);
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onSellFriendly) c.onSellFriendly(p, x, m); }
   return true;

@@ -30,6 +30,8 @@ const picked = {};
 deadline = Date.now() + HERO_PICK_MS;
 for (const h of humans) send(h.seat, { t: 'heroes', opts: heroOpts[h.seat], tribes, left: HERO_PICK_MS });
 timer = setTimeout(startMatch, HERO_PICK_MS);
+function pushPicks() { sendAll({ t: 'picks', players: humans.map(h => ({ name: h.name, picked: !!picked[h.seat], gone: !connected.has(h.seat) })) }); }
+pushPicks();
 
 function startMatch() {
   if (phase !== 'heroes') return; phase = 'starting'; clearTimeout(timer);
@@ -73,6 +75,11 @@ function stateFor(p, extra) {
   return Object.assign({ t: 'state', me: mine(p), game: game(), done: done.has(p.seat), events: ev }, extra || {});
 }
 const humanPlayers = () => G.players.filter(p => p.human);
+function pushStatus() {
+  if (!G) return;
+  const hs = humanPlayers();
+  sendAll({ t: 'status', phase, humans: hs.map(p => ({ id: p.id, name: p.name, alive: p.alive, bot: p.isAI, done: phase === 'recruit' ? done.has(p.seat) : ready.has(p.seat) })) });
+}
 const pushStates = () => humanPlayers().forEach(p => send(p.seat, stateFor(p)));
 
 // ---------- recruit ----------
@@ -82,6 +89,7 @@ function startRecruit() {
   deadline = Date.now() + turnSeconds(G.turn) * 1000;
   clearTimeout(timer); timer = setTimeout(resolveTurn, deadline - Date.now());
   for (const p of humanPlayers()) send(p.seat, stateFor(p, { t: 'turn' }));
+  pushStatus();
   thinkBots();
 }
 function thinkBots() {
@@ -141,10 +149,11 @@ function resolveTurn() {
     }
   }
   if (G.over) { phase = 'over'; finish(); return; }
+  pushStatus();
   clearTimeout(timer); timer = setTimeout(nextTurn, READY_MAX_MS);
 }
 function nextTurn() { if (phase !== 'combat') return; startRecruit(); }
-function maybeNext() { if (phase === 'combat' && activeHumans().every(p => ready.has(p.seat))) { clearTimeout(timer); nextTurn(); } }
+function maybeNext() { if (phase === 'combat' && activeHumans().every(p => ready.has(p.seat))) { clearTimeout(timer); nextTurn(); } else pushStatus(); }
 function finish() {
   const order = G.players.slice().sort((a, b) => (a.placement || 1) - (b.placement || 1)).map(p => ({ name: p.name, heroId: p.hero.id, placement: p.placement || 1, human: !!p.human }));
   sendAll({ t: 'over', standings: order });
@@ -156,19 +165,21 @@ parentPort.on('message', ({ seat, msg, sys }) => {
   if (sys === 'disconnect') {
     connected.delete(seat);
     if (G) { const p = G.players.find(x => x.seat === seat); if (p) { p.isAI = true; if (phase === 'recruit' && p.alive) { done.add(seat); B.aiTakeTurn(p); maybeResolve(); } maybeNext(); } }
+    if (phase === 'heroes') { pushPicks(); if (humans.every(h => picked[h.seat] || !connected.has(h.seat))) startMatch(); } else pushStatus();
     if (!connected.size) { clearTimeout(timer); parentPort.postMessage({ end: true }); }
     return;
   }
   if (sys === 'reconnect') {
     connected.add(seat);
     if (phase === 'heroes') { send(seat, { t: 'heroes', opts: heroOpts[seat], tribes, left: Math.max(0, deadline - Date.now()), picked: picked[seat] }); return; }
-    if (G) { const p = G.players.find(x => x.seat === seat); if (p) { p.isAI = false; if (phase === 'recruit') done.delete(seat); send(seat, stateFor(p, { t: 'turn', resume: true })); } }
+    if (G) { const p = G.players.find(x => x.seat === seat); if (p) { p.isAI = false; if (phase === 'recruit') done.delete(seat); send(seat, stateFor(p, { t: 'turn', resume: true })); pushStatus(); } }
     return;
   }
   if (!msg) return;
   if (msg.t === 'hero' && phase === 'heroes') {
     if (heroOpts[seat] && heroOpts[seat].includes(msg.id)) picked[seat] = msg.id;
     send(seat, { t: 'heroPicked', id: picked[seat] });
+    pushPicks();
     if (humans.every(h => picked[h.seat] || !connected.has(h.seat))) startMatch();
     return;
   }
@@ -178,7 +189,9 @@ parentPort.on('message', ({ seat, msg, sys }) => {
     if (phase === 'recruit' && p.alive && !done.has(seat)) { try { act(p, msg); } catch (e) { console.error(e); } }
     send(seat, stateFor(p));
   } else if (msg.t === 'end') {
-    if (phase === 'recruit' && p.alive) { done.add(seat); send(seat, stateFor(p)); maybeResolve(); }
+    if (phase === 'recruit' && p.alive) { done.add(seat); send(seat, stateFor(p)); pushStatus(); maybeResolve(); }
+  } else if (msg.t === 'unend') {
+    if (phase === 'recruit' && p.alive) { done.delete(seat); send(seat, stateFor(p)); pushStatus(); }
   } else if (msg.t === 'ready') {
     ready.add(seat); maybeNext();
   }

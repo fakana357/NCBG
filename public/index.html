@@ -884,6 +884,72 @@ body:has(#clog) #top,body:has(#clog) #board{margin-right:262px}
 .hopt.picked{outline:3px solid var(--y);outline-offset:4px}
 #endBtn:disabled{filter:grayscale(.7) brightness(.7);cursor:default}
 #endBtn.urgent{animation:frz .8s ease-in-out infinite}
+/* board zone */
+#main:not(:has(#enemyHero:not(.hidden))) #board{background:radial-gradient(ellipse 70% 100% at 50% 50%,rgba(2,215,242,.13),rgba(2,215,242,.05) 70%),repeating-linear-gradient(135deg,rgba(2,215,242,.05) 0 2px,transparent 2px 14px)!important;box-shadow:inset 0 0 0 2px rgba(2,215,242,.38),inset 0 0 40px rgba(2,215,242,.12)!important;margin-left:10px;margin-right:10px;border-radius:6px}
+body:has(.dragghost) #main:not(:has(#enemyHero:not(.hidden))) #board{box-shadow:inset 0 0 0 2px rgba(2,215,242,.8),inset 0 0 60px rgba(2,215,242,.25)!important}
+#board{touch-action:pan-y}
+
+.mbtn.mini{font-size:16px;padding:10px;background:transparent;color:var(--c);box-shadow:inset 0 0 0 1px var(--c);clip-path:none;letter-spacing:.16em}
+.mbtn.mini:hover{background:rgba(2,215,242,.1)}
+.botpanel{display:flex;flex-direction:column;gap:10px;padding:12px;box-shadow:inset 0 0 0 1px rgba(2,215,242,.4);background:rgba(2,215,242,.04)}
+.botpanel.hidden{display:none}
+.botpanel .mbtn{font-size:20px;padding:14px}
+
+.on-code{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;margin:0 auto}
+.on-code i{font-style:normal;font-size:12px;letter-spacing:.2em;color:var(--c);text-shadow:none}
+.on-p.rdy em{color:var(--g)}.on-p.rdy{box-shadow:inset 0 0 0 1px rgba(57,255,136,.5)}.on-p.me.rdy{box-shadow:inset 0 0 0 2px var(--y)}
+.mbtn:disabled{opacity:.4;cursor:default}
+#onReady.on{background:var(--g)}
+.on-rooms{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto}
+.on-room{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:10px 14px;background:#10121f;border:none;box-shadow:inset 0 0 0 1px #343a63;color:var(--txt);cursor:pointer;font:700 18px 'Rajdhani',system-ui,sans-serif;text-align:left}
+.on-room:hover{box-shadow:inset 0 0 0 2px var(--c)}
+.on-room b{font-family:var(--fd);letter-spacing:.2em;color:var(--y)}.on-room i{font-style:normal;color:var(--dim)}
+.chat{display:flex;flex-direction:column;background:#0b0c16;box-shadow:inset 0 0 0 1px #343a63}
+.chat-log{height:150px;overflow-y:auto;padding:8px 10px;font-size:16px;line-height:1.3;user-select:text;-webkit-user-select:text}
+.chat-m{word-break:break-word}.chat-m b{color:var(--c)}
+.chat-f{display:flex;border-top:1px solid #343a63}
+.chat-f input{flex:1;min-width:0;background:transparent;border:none;color:#fff;font:600 16px 'Rajdhani',system-ui,sans-serif;padding:10px;outline:none}
+.chat-f button{background:var(--c);color:#000;border:none;font:800 12px var(--fd);letter-spacing:.12em;padding:0 14px;cursor:pointer}
+#gameChat{position:fixed;right:16px;top:84px;width:min(340px,calc(100vw - 32px));z-index:150;box-shadow:0 12px 40px rgba(0,0,0,.7)}
+#gameChat.hidden{display:none}
+#gameChat .chat-log{height:220px}
+.chat-x{position:absolute;top:-12px;right:-12px;width:28px;height:28px;border-radius:50%;border:1px solid #343a63;background:#141426;color:#fff;cursor:pointer}
+.chatn{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--r);color:#fff;font:800 11px var(--fd);display:flex;align-items:center;justify-content:center}
+#bChat{position:relative}
+.lb-tag.rd{background:var(--g);color:#000}.lb-tag.pl{background:#343a63;color:#fff}.lb-tag.off{background:#555;color:#ddd}
+#endBtn.waiting{filter:grayscale(.6) brightness(.85)}
+#pickSt{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
+#pickSt span{padding:6px 12px;background:#10121f;box-shadow:inset 0 0 0 1px #343a63;font-weight:700;font-size:17px;color:var(--dim)}
+#pickSt span.ok{color:#fff;box-shadow:inset 0 0 0 1px var(--g)}#pickSt span.gone{opacity:.4}
+
+/* shorter hand zone */
+@media (min-width:761px){#bottom{flex:21 1 0!important}}
+#powerBtn .pn{flex-direction:column;align-items:flex-start!important;justify-content:center;gap:3px;max-width:340px;text-align:left}
+#powerBtn .ptx{font-family:'Rajdhani',system-ui,sans-serif;font-weight:600;font-size:13px;letter-spacing:0;text-transform:none;line-height:1.15;color:#c9cde0;white-space:normal}
+@media (max-width:760px){
+  #bottom{height:calc(var(--tcw) * 1.45 * .9 + 76px)!important}
+  #powerBtn .pn{max-width:none}
+  #powerBtn .ptx{font-size:10px;line-height:1.1}
+}
+#heroOpts:has(.picked) .hopt:not(.picked){opacity:.4;filter:saturate(.5)}
+.hopt.picked{box-shadow:0 0 0 3px var(--y),0 0 30px rgba(243,230,0,.45)!important}
+@media (min-width:761px){
+  #bottom{padding-top:6px!important;padding-bottom:6px!important}
+  #heroBox,#side{max-height:100%;box-sizing:border-box;padding-top:8px!important;padding-bottom:8px!important;align-self:flex-end}
+}
+#heroBox,#heroBox .hrow,#heroBox .hmeta{min-width:0}
+#powerBtn{max-width:100%;min-width:0}
+#powerBtn .pn{min-width:0;overflow:hidden}
+#powerBtn .ptx{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:760px){
+  #heroBox{flex:1 1 auto!important;min-width:0!important;max-width:calc(100% - 150px)}
+  #powerBtn .ptx{-webkit-line-clamp:2}
+}
+
+#counters.inrow{flex-direction:row!important;flex-wrap:wrap;gap:6px;align-self:flex-start;margin-top:6px;height:auto!important}
+#counters.inrow .ctrc{padding:3px 9px}
+#counters.inrow .ctrc b{font-size:16px}
+#shop.fitrow{overflow-x:hidden!important;justify-content:center!important}
 
 /* =====================================================================
    CARD MODULE — single source of truth for every card in the game.
@@ -1256,8 +1322,64 @@ body:has(#clog) #top,body:has(#clog) #board{margin-right:262px}
 body.targeting #board .card:not(.tgt):not(.pending),body.targeting #shop .card:not(.tgt){filter:brightness(.4) saturate(.5);transition:filter .25s}
 .card.pending{filter:brightness(.35) saturate(.4);pointer-events:none;animation:pendin .25s ease-out}
 @keyframes pendin{from{filter:brightness(1);translate:0 -14px}}
+
+/* ===== Quickhack chip ===== */
+.card.qhack{width:calc(var(--cw)*1.38);height:calc(var(--ch)*.86);align-self:center;display:flex;flex-direction:column;background:none;--qc:#ff2a6d;--qd:#7a0f35}
+.card.qhack .qh-legs{flex:none;height:12%;margin:0 12%;position:relative;
+  background:repeating-linear-gradient(90deg,transparent 0 1.6%,#6e5518 1.6% 2.2%,#ffe9a6 2.2% 3.4%,#c99a2e 3.4% 4.6%,#6e5518 4.6% 5.2%,transparent 5.2% 10%);
+  -webkit-mask:linear-gradient(180deg,#000 0 62%,rgba(0,0,0,.85) 62% 100%);mask:linear-gradient(180deg,#000 0 62%,rgba(0,0,0,.85) 62% 100%)}
+.card.qhack .qh-legs::before{content:'';position:absolute;left:38%;right:38%;top:0;bottom:0;background:linear-gradient(180deg,#3a3f4a,#16181e);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);clip-path:polygon(12% 0,88% 0,100% 100%,0 100%)}
+.card.qhack .qh-legs.b::before{clip-path:polygon(0 0,100% 0,88% 100%,12% 100%)}
+.card.qhack .qh-pkg{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;
+  --c1:1.3em;--c2:.55em;
+  clip-path:polygon(var(--c1) 0,100% 0,100% calc(100% - var(--c1)),calc(100% - var(--c1)) 100%,0 100%,0 var(--c1));
+  background:linear-gradient(135deg,var(--qc),var(--qd) 45%,var(--qc));filter:drop-shadow(0 0 10px rgba(255,42,109,.35))}
+.card.qhack .qh-pkg::before{content:'';position:absolute;inset:2px;clip-path:inherit;z-index:0;
+  background:repeating-linear-gradient(90deg,rgba(255,42,109,.06) 0 1px,transparent 1px 2.2em),repeating-linear-gradient(0deg,rgba(255,42,109,.06) 0 1px,transparent 1px 2.2em),radial-gradient(ellipse 80% 60% at 50% 100%,rgba(255,42,109,.12),transparent 70%),linear-gradient(180deg,#17121c,#09070c)}
+.card.qhack .qh-pkg>*{position:relative;z-index:1}
+.card.qhack .qh-band{display:flex;align-items:center;gap:.55em;margin:2px 2px 0 2px;padding:.45em .7em .45em 1.2em;
+  background:linear-gradient(90deg,rgba(255,42,109,.55),rgba(255,42,109,.18) 70%,transparent);clip-path:polygon(calc(var(--c1) - 2px) 0,100% 0,100% 100%,0 100%,0 calc(var(--c1) - 2px))}
+.card.qhack .hcost{flex:none;width:1.7em;height:1.85em;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-weight:900;font-size:1.25em;color:#001018;background:#4fc3ff;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.card.qhack.dear .hcost{background:#666;color:#ccc}
+.card.qhack .clabel{flex:1;min-width:0;font-family:var(--fd);font-weight:900;font-size:1.45em;line-height:1.05;letter-spacing:.03em;text-transform:uppercase;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);text-align:left;overflow-wrap:normal;word-break:keep-all}
+.card.qhack .qh-type{display:flex;align-items:center;gap:.6em;padding:.35em .9em .2em;font-family:'Consolas','Courier New',monospace;font-weight:700;font-size:.8em;letter-spacing:.16em;color:#ff8fb1}
+.card.qhack .qh-type i{flex:1;height:1px;background:linear-gradient(90deg,rgba(255,42,109,.7),rgba(255,42,109,.15));position:relative}
+.card.qhack .qh-type i::after{content:'';position:absolute;right:0;top:-.2em;width:.45em;height:.45em;border-radius:50%;box-shadow:0 0 0 1px rgba(255,42,109,.7)}
+.card.qhack .htext{flex:1 1 0;min-height:0;overflow:hidden;margin:.15em 0 .5em;padding:0 .9em;display:block;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.5em;line-height:1.1;color:#ffe6ef;text-align:left}
+.card.qhack .qh-pkg::after{content:'';position:absolute;right:.75em;bottom:.65em;width:.5em;height:.5em;border-radius:50%;background:rgba(255,255,255,.35);z-index:1}
+.card.qhack:hover .qh-pkg{filter:drop-shadow(0 0 14px rgba(255,42,109,.6)) brightness(1.08)}
+.card.qhack.dear .qh-pkg{filter:saturate(.35) brightness(.75)}
+/* ===== Cyberware: machined metal implant ===== */
+.card.ware{--ic:#4fc3ff;--tint:rgba(79,195,255,0)}
+.card.ware.rnd{--ic:#c43cff;--tint:rgba(196,60,255,.22)}
+.card.ware.mal{--ic:#ff1f4b;--tint:rgba(255,31,75,.22)}
+.card.ware .wb{padding:1.55em 1.05em 1.75em!important;gap:.35em!important;
+  background:
+    radial-gradient(circle at 33% 2.6%,#fbfcfe 0 .12em,#3a414b .16em .26em,transparent .3em),
+    radial-gradient(circle at 67% 2.6%,#fbfcfe 0 .12em,#3a414b .16em .26em,transparent .3em),
+    radial-gradient(circle at 33% 97.4%,#fbfcfe 0 .12em,#3a414b .16em .26em,transparent .3em),
+    radial-gradient(circle at 67% 97.4%,#fbfcfe 0 .12em,#3a414b .16em .26em,transparent .3em),
+    linear-gradient(var(--tint),var(--tint)),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,transparent 1px 3px),
+    linear-gradient(180deg,#f2f5f8 0%,#aab3be 9%,#6b7480 30%,#c6ced7 52%,#5d6570 74%,#9ea8b4 91%,#e6eaef 100%)!important;
+  box-shadow:none!important;filter:drop-shadow(0 4px 8px rgba(0,0,0,.7))}
+.card.ware .wb::before{inset:.42em!important;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.07) 38%,transparent 46%),repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 4px),radial-gradient(ellipse at 50% 28%,color-mix(in srgb,var(--ic) 30%,#0b1420),#06080c 72%)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ic) 55%,transparent),inset 0 3px 8px rgba(0,0,0,.85)!important}
+.card.ware .wtop{gap:.45em}
+.card.ware .whum{background:rgba(0,0,0,.45);border-color:#ff5c7a!important}
+.card.ware .wb .wname{font-size:1.2em;font-weight:900;color:#fff;letter-spacing:.04em;text-shadow:0 0 8px color-mix(in srgb,var(--ic) 70%,transparent);padding:.15em .2em .3em}
+.card.ware .wname::after{background:linear-gradient(90deg,transparent,var(--ic),transparent)!important}
+.card.ware .wsym{font-size:1.5em!important;width:1.6em!important;height:1.6em!important;color:#fff!important;
+  background:radial-gradient(circle at 50% 50%,#fff 0 6%,color-mix(in srgb,var(--ic) 80%,#fff) 9%,color-mix(in srgb,var(--ic) 55%,#000) 30%,#05070b 62%)!important;
+  box-shadow:0 0 0 .08em #c9d1db,0 0 0 .15em #1a1e25,0 0 0 .2em var(--ic),0 0 .7em var(--ic)!important;text-shadow:0 0 6px #000}
+.card.ware .cimg{width:36%!important}
+.card.ware .wb .wtext{font-size:1.36em;font-weight:700;line-height:1.1;color:#eef4fb;min-height:0;overflow:hidden;flex:0 1 auto}
+.card.ware .wtag{display:flex;align-items:center;gap:.4em;font-size:.72em!important;color:color-mix(in srgb,var(--ic) 65%,#fff)!important}
+.card.ware .wtag::before{content:'';width:.55em;height:.55em;border-radius:50%;background:var(--ic);box-shadow:0 0 6px var(--ic)}
+.card.ware.rnd .wsym,.card.ware.mal .wsym{color:#fff!important}
 </style></head><body>
-<div id="menu" class="screen hidden"><div class="mlogo"><span class="m1">NIGHT CITY</span><span class="m2">BATTLEGROUNDS</span></div><div class="mbtns"><div class="mdiff" id="mDiff"><button data-d="0">NORMAL</button><button data-d="1">HARD</button><button data-d="2">VERY HARD</button></div><button class="mbtn" id="mPlay">PLAY</button><button class="mbtn hidden" id="mOnline">ONLINE</button><button class="mbtn sec" id="mTut">TUTORIAL</button><button class="mbtn sec" id="mLib">LIBRARY</button><button class="mbtn sec" id="mRules">HOW TO PLAY</button></div></div>
+<div id="menu" class="screen hidden"><div class="mlogo"><span class="m1">NIGHT CITY</span><span class="m2">BATTLEGROUNDS</span></div><div class="mbtns"><div class="mdiff" id="mDiff"><button data-d="0">NORMAL</button><button data-d="1">HARD</button><button data-d="2">VERY HARD</button></div><button class="mbtn" id="mPlay">PLAY</button><button class="mbtn mini hidden" id="mBots">PLAY WITH BOTS</button><div class="botpanel hidden" id="botPanel"><button class="mbtn" id="mBotGo">START</button></div><button class="mbtn sec" id="mTut">TUTORIAL</button><button class="mbtn sec" id="mLib">LIBRARY</button><button class="mbtn sec" id="mRules">HOW TO PLAY</button></div></div>
 <div id="library" class="screen hidden"></div>
 <div id="rules" class="screen hidden"></div>
 <div id="online" class="screen hidden"></div>
@@ -1945,14 +2067,14 @@ Hh('kade', 'Kade Ortega', 8, { name: 'Biotech Venture', cost: 1, text: 'Gain 1 M
 
 // ---------------- shop ----------------
 const HERO_CLANS = { hanako: 'ARA', yorinobu: 'ARA', saburo: 'ARA', goro: 'TYG', wakako: 'TYG', royce: 'MAE', smasher: 'MAE', meredith: 'MIL', reed: 'MIL', panam: 'ALD', river: 'ALD', jackie: 'VAL', v: 'VAL', placide: 'VDB', brigitte: 'VDB', alt: 'VDB', judy: 'MOX', evelyn: 'MOX', sasquatch: 'ANI', rhino: 'ANI', lena: 'BIO', kade: 'BIO' };
-for (const id in HERO_CLANS) { const h = HEROES[id]; if (!h) continue; h.clan = HERO_CLANS[id]; h.power.text += ` Clan: ${TRIBES[h.clan].name} show up more often in your Tavern and arrive with +1/+1.`; }
+for (const id in HERO_CLANS) { const h = HEROES[id]; if (!h) continue; h.clan = HERO_CLANS[id]; }
 function drawMinion(p) {
   const cands = CARD_LIST.filter(c => c.tier <= p.tier && inLobby(c) && G.pool[c.id] > 0);
-  const clan = p.hero && p.hero.clan; const w = c => G.pool[c.id] * (clan && c.tribe === clan ? 1.6 : 1);
+  const clan = p.hero && p.hero.clan; const w = c => G.pool[c.id];
   let total = 0; for (const c of cands) total += w(c);
   if (!total) return null;
   let r = Math.random() * total;
-  for (const c of cands) { r -= w(c); if (r < 0) { G.pool[c.id]--; const m = makeMinion(c.id); const tb = Math.floor(1.5 * (p.tier - 1)) + (p.hero.id === 'hands' ? 1 : 0) + (clan && c.tribe === clan ? 1 : 0); buff(m, p.tavBuff.a + tb, p.tavBuff.h + tb); return m; } }
+  for (const c of cands) { r -= w(c); if (r < 0) { G.pool[c.id]--; const m = makeMinion(c.id); const tb = Math.floor(1.5 * (p.tier - 1)) + (p.hero.id === 'hands' ? 1 : 0); buff(m, p.tavBuff.a + tb, p.tavBuff.h + tb); return m; } }
   return null;
 }
 function rollOffers(mk) { const r = Math.random(); const n = r < .1 ? 3 : r < .35 ? 2 : 1; return Array.from({ length: n }, mk); }
@@ -2001,7 +2123,7 @@ function actBuyWare(p, i) {
 function actSell(p, idx) {
   const m = p.board[idx]; if (!m) return false;
   p.board.splice(idx, 1); returnToPool(m); syncRam(p);
-  if (m.id !== 'tok_clone') p.gold = Math.min(p.gold + 1, 99);
+  if (m.id !== 'tok_clone') p.gold = Math.min(p.gold + 3, 99);
   if (p.hero.power.onSell) p.hero.power.onSell(p, m);
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onSellFriendly) c.onSellFriendly(p, x, m); }
   return true;
@@ -2698,13 +2820,13 @@ function heroArt(h) {
   return s;
 }
 function powerText(h) { return h.power.text.replace(/ Clan: .*$/, ''); }
-function clanChip(h) { return h.clan ? `<span class="hclan" style="--c:${heroColor(h)}" data-tip="${tt('Clan: ' + B.TRIBES[h.clan].name, B.TRIBES[h.clan].name + ' minions show up more often in your Tavern and arrive with +1/+1.')}">${B.TRIBES[h.clan].name}</span>` : '<span class="hclan any">ANY CREW</span>'; }
+function clanChip(h) { return h.clan ? `<span class="hclan" style="--c:${heroColor(h)}" data-tip="${tt('Clan: ' + B.TRIBES[h.clan].name, 'This hero\'s power is built for ' + B.TRIBES[h.clan].name + '. Only offered when ' + B.TRIBES[h.clan].name + ' are in the lobby.')}">${B.TRIBES[h.clan].name}</span>` : '<span class="hclan any">ANY CREW</span>'; }
 function initials(n) { return n.replace(/[^A-Za-z .]/g, '').split(/[ .]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 function portrait(p, w, opts) {
   opts = opts || {};
   const h = p.hero, img = artUrl('hero_' + h.id);
   const pct = Math.max(0, Math.min(100, p.hp / 40 * 100));
-  return `<div class="portrait pfr ${pct <= 30 ? 'low' : ''}" style="--pw:${w}px;--pc:${heroColor(h)}"><div class="pfr-f"><div class="pfr-art">${img ? `<img src="${img}" alt="">` : heroArt(h)}</div>${img ? '' : `<span class="pfr-mono">${initials(h.name)}</span>`}</div>${opts.tier ? `<b class="pfr-tier">${p.tier}</b>` : ''}${p.armor > 0 && !opts.noArmor ? `<b class="pfr-arm">${p.armor}</b>` : ''}${opts.noHp ? '' : `<div class="pfr-hp"><i style="width:${pct}%"></i><span>${Math.max(0, p.hp)}</span></div>`}</div>`;
+  return `<div class="portrait pfr ${pct <= 30 ? 'low' : ''}" style="--pw:${w}px;--pc:${heroColor(h)}"><div class="pfr-f"><div class="pfr-art">${img ? `<img src="${img}" alt="">` : heroArt(h)}</div>${img ? '' : `<span class="pfr-mono">${initials(h.name)}</span>`}</div>${opts.tier ? `<b class="pfr-tier">${p.tier}</b>` : ''}${p.armor > 0 && !opts.noArmor ? `<b class="pfr-arm">${p.armor}</b>` : ''}${opts.noHp ? '' : `<div class="pfr-hp"><i style="width:${pct}%"></i><span data-cnt="${p.id != null ? 'ph' + p.id + '-' + (opts.k || '') : ''}">${Math.max(0, p.hp)}</span></div>`}</div>`;
 }
 
 
@@ -2783,8 +2905,7 @@ function minionEl(m, z, i, extra) {
 function spellEl(sp, z, i, cost) {
   const s = B.SPELLS[sp.id];
   const dear = me && cost > me.ram && z === 'sshop';
-  const img = artUrl(sp.id);
-  return `<div class="card spell ${dear ? 'dear' : ''} ${s.target ? 'targeted' : ''}" data-z="${z}" data-i="${i}" ${sp.uid && z !== 'discs' ? `data-uid="${sp.uid}"` : ''}><div class="chip"><div class="hscan"></div><div class="ctop"><span class="hcost" data-tip="${tt('RAM cost', `Buying this Quickhack costs ${cost} RAM. RAM refills every turn.`)}">${cost}</span><span class="ctag">QH·T${s.tier}</span></div><div class="clabel">${s.name}</div>${img ? `<div class="cimg" style="background-image:url(${img})"></div>` : `<div class="hsym">${sym(sp.id)}</div>`}<div class="htext">${kwify(s.text)}</div><div class="pins"></div></div></div>`;
+  return `<div class="card qhack ${dear ? 'dear' : ''} ${s.target ? 'targeted' : ''}" data-z="${z}" data-i="${i}" ${sp.uid && z !== 'discs' ? `data-uid="${sp.uid}"` : ''}><div class="qh-legs"></div><div class="qh-pkg"><div class="qh-band"><span class="hcost" data-tip="${tt('RAM cost', `Buying this Quickhack costs ${cost} RAM. RAM refills every turn.`)}">${cost}</span><div class="clabel">${s.name}</div></div><div class="qh-type"><span>QUICKHACK</span><i></i><span>T${s.tier}</span></div><div class="htext">${kwify(s.text)}</div></div><div class="qh-legs b"></div></div>`;
 }
 function wareEl(w, z, i) {
   const d = B.WARE[w.id]; const cost = me ? B.wareCost(me, w) : d.cost;
@@ -2837,6 +2958,15 @@ function sizeTable(spec) {
   $('#main').style.setProperty('--tcw', cw + 'px');
   S.tableCw = cw;
   for (const [row] of spec) row.style.setProperty('--cw', cw + 'px');
+  // phones: show the whole Tavern at once until a card is tapped
+  const shop = $('#shop');
+  if (shop && isPortrait() && S.shopFit && phase === 'recruit') {
+    const sp = spec.find(x => x[0] === shop), units = sp ? sp[1] : 0, n = shop.children.length;
+    const cs = getComputedStyle(shop), gap = parseFloat(cs.columnGap) || 6;
+    const avail = shop.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - gap * Math.max(0, n - 1) - 4;
+    const fit = Math.floor(avail / Math.max(1, units));
+    if (fit < cw) { shop.style.setProperty('--cw', fit + 'px'); shop.classList.add('fitrow'); } else shop.classList.remove('fitrow');
+  } else if (shop) shop.classList.remove('fitrow');
   const hand = $('#hand'); if (hand && phase !== 'hero') { hand.style.setProperty('--cw', cw + 'px'); }
 }
 function sizeRow(row, n, maxW) { const cw = Math.max(48, Math.floor(rowFit(row, n, maxW))); row.style.setProperty('--cw', cw + 'px'); }
@@ -2938,7 +3068,7 @@ function renderLobby0() {
   const oppReal = oppId === 'ghost' ? (G.pairs && G.pairs.flat().find(x => x.isGhost) || {}).ghostOf : oppId;
   const w = window.innerWidth < 760 || window.innerHeight < 520 ? 34 : 56;
   el.innerHTML = alive.concat(dead).map(p => { const nx = p.id === oppReal && p !== me; const pct = Math.max(0, Math.min(100, p.hp / 40 * 100));
-    return `<div data-hp="${p.hp + p.armor}" class="lb ${p === me ? 'me' : ''} ${nx ? 'next' : ''} ${p.alive ? '' : 'dead'}" data-lob="${p.id}" style="--pc:${heroColor(p.hero)}">${portrait(p, w, { tier: p.alive, noHp: true, noArmor: true })}<div class="lb-i"><div class="lb-t"><span class="lb-n">${NET.on ? p.name : p.hero.name}</span>${p === me ? '<em class="lb-tag you">YOU</em>' : nx ? '<em class="lb-tag nx">NEXT</em>' : ''}${p.alive && p.lastResult ? `<em class="lb-res ${p.lastResult}">${p.lastResult}</em>` : ''}</div>${p.alive ? `<div class="lb-h"><div class="lb-bar ${pct <= 30 ? 'low' : ''}"><i style="width:${pct}%"></i></div><b>${p.hp}</b>${p.armor ? `<span class="lb-arm">${p.armor}</span>` : ''}</div>` : `<div class="lb-h dead">#${p.placement}</div>`}</div><div class="lb-mini"><i style="width:${p.alive ? pct : 0}%"></i><span>${p.alive ? p.hp + (p.armor ? '+' + p.armor : '') : '#' + p.placement}</span></div></div>`; }).join('');
+    return `<div data-hp="${p.hp + p.armor}" class="lb ${p === me ? 'me' : ''} ${nx ? 'next' : ''} ${p.alive ? '' : 'dead'}" data-lob="${p.id}" style="--pc:${heroColor(p.hero)}">${portrait(p, w, { tier: p.alive, noHp: true, noArmor: true })}<div class="lb-i"><div class="lb-t"><span class="lb-n">${NET.on ? p.name : p.hero.name}</span>${p === me ? '<em class="lb-tag you">YOU</em>' : nx ? '<em class="lb-tag nx">NEXT</em>' : ''}${NET.on ? netTag(p) : ''}${p.alive && p.lastResult ? `<em class="lb-res ${p.lastResult}">${p.lastResult}</em>` : ''}</div>${p.alive ? `<div class="lb-h"><div class="lb-bar ${pct <= 30 ? 'low' : ''}"><i style="width:${pct}%"></i></div><b data-cnt="lh${p.id}">${p.hp}</b>${p.armor ? `<span class="lb-arm" data-cnt="la${p.id}">${p.armor}</span>` : ''}</div>` : `<div class="lb-h dead">#${p.placement}</div>`}</div><div class="lb-mini"><i style="width:${p.alive ? pct : 0}%"></i><span>${p.alive ? p.hp + (p.armor ? '+' + p.armor : '') : '#' + p.placement}</span></div></div>`; }).join('');
 }
 const FDESC = {"MIL": "Arsenal. Every piece of Cyberware you install raises Arsenal; Militech scale off it. Humanity 4.", "MAE": "Chrome madness. Humanity 0: one implant makes them Cyberpsychos. Their Psychos have quadruple Attack and Health, and Max-Tac rarely hunts them.", "TYG": "Honor. Every enemy a Tyger Claws destroys earns Honor; their blades grow with it. Humanity 3.", "ALD": "Convoy. End of Turn buffs flow along the line; the Captain and Relay make them fire again. Humanity 3.", "ARA": "Engram. Uploads build a permanent bonus that every Arasaka you control has. Humanity 4.", "VAL": "Familia. Eddies and Loyalty: the longer they stay, the faster they grow. Humanity 3.", "VDB": "Netrunning. Burn RAM on Quickhacks or hoard it for daemons. Humanity 2.", "ANI": "Juice. Health compounds; big bodies hit with their Health. Humanity 3.", "BIO": "Clones. Grow Clones from vats; Mutation makes every new Clone bigger. Humanity 3.", "MOX": "Rally. Buffs scale with how many factions you control; they avenge each other. Humanity 3."};
 const FGUIDE = {
@@ -2965,12 +3095,13 @@ function renderRecruit() {
     <button class="tbtn tav" id="bRef" data-tip="${tt('Refresh', `Costs ${me.freeRefresh ? '0 (free)' : '1'} €$. Replace every minion, the Cyberware and the Quickhack in the Tavern.`)}" ${me.gold < 1 && !me.freeRefresh ? 'disabled' : ''}>⟳ <span class="cost">${me.freeRefresh ? 0 : 1}</span></button>
     <button class="tbtn tav ${me.frozen ? 'on' : ''}" id="bFrz" data-tip="${tt(me.frozen ? 'Unfreeze' : 'Freeze', 'Free. Keep the current Tavern offers for next turn.')}">❄</button>
     <div class="tribechips">${tribeChips(G.tribes)}</div>
-    <button class="tbtn" id="bLib" data-tip="${tt('Library', 'Browse every card and mechanic.')}">▤</button>
+    ${NET.on ? `<button class="tbtn" id="bChat" data-tip="${tt('Chat', 'Talk to the other players.')}">✉${NET.unread ? `<b class="chatn">${NET.unread}</b>` : ''}</button>` : ''}<button class="tbtn" id="bLib" data-tip="${tt('Library', 'Browse every card and mechanic.')}">▤</button>
     <button class="tbtn" id="bRules" data-tip="${tt('How to Play', 'Rules and mechanics.')}">?</button>
     <button class="tbtn" id="bQuit" data-tip="${tt('Quit to menu', 'Abandon this game and return to the main menu.')}">⏻</button>`;
   $('#bUp').onclick = () => { if (B.actUpgrade(me)) render(); };
-  $('#bRef').onclick = () => { if (B.actRefresh(me)) render(); };
+  $('#bRef').onclick = () => { if (B.actRefresh(me)) { S.shopFit = true; render(); } };
   $('#bFrz').onclick = () => { B.actFreeze(me); render(); };
+  if ($('#bChat')) $('#bChat').onclick = () => chatToggle();
   $('#bLib').onclick = () => openLibrary(true);
   $('#bRules').onclick = () => openRules(true);
   $('#bQuit').onclick = () => { if ($('#bQuit').dataset.armed) mainMenu(); else { $('#bQuit').dataset.armed = 1; $('#bQuit').classList.add('armed'); $('#bQuit').dataset.tip = tt('Click again to quit', 'Your current game will be lost.'); setTimeout(() => { const q = $('#bQuit'); if (q) { delete q.dataset.armed; q.classList.remove('armed'); } }, 2500); } };
@@ -2987,7 +3118,7 @@ function renderRecruit() {
   if (pend) bh.splice(Math.min(pend.pos, bh.length), 0, minionEl(pend.self, 'pend', 0, { cls: 'pending' }));
   board.innerHTML = bh.join('');
   document.body.classList.toggle('targeting', !!S.tgt);
-  sizeTable([[shop, me.shop.length + me.shopSpells.length * .8 + me.shopWares.length], [board, me.board.length + (pend ? 1 : 0)]]);
+  sizeTable([[shop, me.shop.length + me.shopSpells.length * 1.35 + me.shopWares.length * .95], [board, me.board.length + (pend ? 1 : 0)]]);
   shop.style.columnGap = shop.style.rowGap = ''; board.style.columnGap = board.style.rowGap = '';
   shop.classList.remove('fitall');
   renderBottom();
@@ -3015,7 +3146,7 @@ function renderBottom() {
   const hp = me.hero.power;
   const usable = B.heroPowerUsable(me);
   const mob = window.innerWidth < 760 || window.innerHeight < 520;
-  $('#heroBox').innerHTML = `<div class="hrow">${portrait(me, isPortrait() ? 50 : mob ? 52 : 96, { tier: false })}<div class="hmeta"><div class="hname">${me.hero.name}</div><button id="powerBtn" class="${hp.passive ? 'passive' : me.hpUsed || (hp.once && me.hdata.used) ? 'used' : usable ? 'ready' : 'off'}"><span class="pc">${hp.passive ? '◈' : me.hdata.cd > 0 ? '⧗' + me.hdata.cd : hp.cost}</span><span class="pn">${hp.name}</span></button></div></div><div id="implants">${me.perks.map((im, i) => `<div class="imp ${B.PERKS[im.id].greater ? 'greater' : ''}" data-imp="${im.id}" style="--c:${B.PERKS[im.id].tribe ? B.TRIBES[B.PERKS[im.id].tribe].color : '#f3e600'}">${artUrl(im.id) ? `<img src="${artUrl(im.id)}" alt="">` : initials(B.PERKS[im.id].name)}</div>`).join('')}</div>`;
+  $('#heroBox').innerHTML = `<div class="hrow">${portrait(me, isPortrait() ? 50 : mob ? 52 : 96, { tier: false })}<div class="hmeta"><div class="hname">${me.hero.name}</div><button id="powerBtn" class="${hp.passive ? 'passive' : me.hpUsed || (hp.once && me.hdata.used) ? 'used' : usable ? 'ready' : 'off'}"><span class="pc">${hp.passive ? '◈' : me.hdata.cd > 0 ? '⧗' + me.hdata.cd : hp.cost}</span><span class="pn"><span>${hp.name}</span><small class="ptx">${kwify(powerText(me.hero))}</small></span></button></div></div><div id="implants">${me.perks.map((im, i) => `<div class="imp ${B.PERKS[im.id].greater ? 'greater' : ''}" data-imp="${im.id}" style="--c:${B.PERKS[im.id].tribe ? B.TRIBES[B.PERKS[im.id].tribe].color : '#f3e600'}">${artUrl(im.id) ? `<img src="${artUrl(im.id)}" alt="">` : initials(B.PERKS[im.id].name)}</div>`).join('')}</div>`;
   const pb = $('#powerBtn');
   pb.onclick = () => {
     if (phase !== 'recruit' || hp.passive || !usable) return;
@@ -3036,18 +3167,23 @@ function renderBottom() {
   ramEl.dataset.tip = tt('RAM', `${me.ram} of ${me.ramCap} RAM. Quickhacks are bought with RAM. RAM refills each turn; your maximum is 2 + Tavern Tier (up to 8), plus bonuses.`);
   if (rchg) pulse(ramEl, 'bump', 500);
   const eng = me.engram || { a: 0, h: 0 };
-  let engEl = $('#engram'); if (!engEl) { engEl = document.createElement('div'); engEl.id = 'engram'; $('#heroBox').after(engEl); }
-  engEl.classList.toggle('hidden', !(eng.a || eng.h));
-  engEl.innerHTML = `<span>ENGRAM</span><b>+${eng.a}/+${eng.h}</b>`;
-  engEl.dataset.tip = tt('Engram', `Every Arasaka you control has +${eng.a}/+${eng.h}${me.board.some(x => x.id === 'ara_mikoshi') ? ' (multiplied by Mikoshi)' : ''}. It never runs out; uploads add to it.`);
-  let ctrEl = $('#counters'); if (!ctrEl) { ctrEl = document.createElement('div'); ctrEl.id = 'counters'; engEl.after(ctrEl); }
-  const ctrs = [['ARSENAL', me.arsenal, '#4fc3ff', 'Arsenal'], ['HONOR', me.honor, '#2bffc6', 'Honor'], ['MUTATION', me.mutation, '#2fd6ae', 'Mutation'], ['HACKS', me.hacksCast, '#a66bff', 'Quickhacks cast this game. Some Voodoo Boys scale with it.']].filter(c => c[1] > 0 && (c[0] === 'HACKS' ? me.board.some(x => ['vdb_tracer', 'vdb_ghost'].includes(x.id)) : true));
-  ctrEl.innerHTML = ctrs.map(([n, v, col, k]) => `<div class="ctrc" style="--cc:${col}" data-tip="${tt(n[0] + n.slice(1).toLowerCase() + ' ' + v, GLOSS[k] || k)}"><span>${n}</span><b>${v}</b></div>`).join('');
+  const oldEng = $('#engram'); if (oldEng) oldEng.remove();
+  let ctrEl = $('#counters'); if (!ctrEl) { ctrEl = document.createElement('div'); ctrEl.id = 'counters'; }
+  const deskCtr = !isPortrait() && innerWidth > 760 && innerHeight > 520;
+  if (deskCtr) { const hm = $('#heroBox .hmeta'); if (hm && ctrEl.parentNode !== hm) hm.appendChild(ctrEl); }
+  else if (ctrEl.previousElementSibling !== $('#heroBox')) $('#heroBox').after(ctrEl);
+  ctrEl.classList.toggle('inrow', deskCtr);
+  const ctrs = [
+    ['ENGRAM', `+${eng.a}/+${eng.h}`, '#ff2d55', tt('Engram', `Every Arasaka you control has +${eng.a}/+${eng.h}${me.board.some(x => x.id === 'ara_mikoshi') ? ' (multiplied by Mikoshi)' : ''}. It never runs out; uploads add to it.`), eng.a || eng.h],
+    ['ARSENAL', me.arsenal, '#4fc3ff', null, me.arsenal > 0], ['HONOR', me.honor, '#2bffc6', null, me.honor > 0], ['MUTATION', me.mutation, '#2fd6ae', null, me.mutation > 0],
+    ['HACKS', me.hacksCast, '#a66bff', null, me.hacksCast > 0 && me.board.some(x => ['vdb_tracer', 'vdb_ghost'].includes(x.id))]].filter(c => c[4]);
+  const K = { ARSENAL: 'Arsenal', HONOR: 'Honor', MUTATION: 'Mutation', HACKS: 'Quickhacks cast this game. Some Voodoo Boys scale with it.' };
+  ctrEl.innerHTML = ctrs.map(([n, v, col, tip]) => `<div class="ctrc" style="--cc:${col}" data-tip="${tip || tt(n[0] + n.slice(1).toLowerCase() + ' ' + v, GLOSS[K[n]] || K[n])}"><span>${n}</span><b>${v}</b></div>`).join('');
   if (gchg) pulse($('#gold'), 'bump', 500);
   const eb = $('#endBtn'); eb.disabled = phase !== 'recruit';
   eb.innerHTML = `END TURN`;
   eb.dataset.tip = tt('End Turn', 'Finish recruiting and go to combat.');
-  $('#gold').dataset.tip = tt('Eddies (€$)', `${me.gold} €$ available. You get ${Math.min(10, G.turn + 3)} €$ next turn (max 10). Minions cost ${B.buyCost(me)}, Cyberware 1–5, Refresh 1, selling gives 1.`);
+  $('#gold').dataset.tip = tt('Eddies (€$)', `${me.gold} €$ available. You get ${Math.min(10, G.turn + 3)} €$ next turn (max 10). Minions cost ${B.buyCost(me)}, Cyberware 1–5, Refresh 1, selling gives 3.`);
   const hpo = $('#heroBox .portrait'); if (hpo) hpo.dataset.tip = tt(me.hero.name, `${me.hp} Health, ${me.armor} Armor. Armor absorbs damage first.`);
   updateTimer();
 }
@@ -3075,7 +3211,7 @@ function tipFor(el) {
   if (z === 'wshop') return `<div class="tbox"><div class="kd"><em>Cyberware:</em> buy with €$, then drag from your hand onto a minion to install it. Each piece uses that minion's Humanity; going over turns it into a Cyberpsycho.</div></div>`;
   if (z === 'sshop') return `<div class="tbox"><div class="kd"><em>Quickhack:</em> a one-time effect. Costs RAM, not €$. Buy it, then drag it from your hand onto the board${me.shopSpells[i] && B.SPELLS[me.shopSpells[i].id].target ? ' or onto a friendly minion' : ''} to cast it.</div></div>`;
   if (z === 'hand') { const c = me.hand[i]; if (c && c.kind === 'ware') return `<div class="tbox"><div class="kd"><em>Cyberware:</em> drag onto a friendly minion to install. Uses ${B.WARE[c.id].hum} Humanity.</div><div class="kd"><em>Cyberpsycho:</em> ${B.KW_DESC['Cyberpsycho']}</div></div>`; return c && (c.kind !== 'spell' ? minionTip(c) : `<div class="tbox"><div class="kd"><em>Quickhack:</em> drag onto the board${B.SPELLS[c.id].target ? ' or onto a friendly minion' : ''} to cast.</div></div>`); }
-  if (z === 'board') return me.board[i] && minionTip(me.board[i]).replace('<div class="tbox">', `<div class="tbox"><div class="kd"><em>Sell:</em> drag up to the Tavern for 1 €$. Drag sideways to reorder; minions attack from left to right.</div>`);
+  if (z === 'board') return me.board[i] && minionTip(me.board[i]).replace('<div class="tbox">', `<div class="tbox"><div class="kd"><em>Sell:</em> drag up to the Tavern for 3 €$. Drag sideways to reorder; minions attack from left to right.</div>`);
   if (z === 'cmb' || z === 'peek' || z === 'lib') return el._m && minionTip(el._m);
   if (z === 'disc') return null;
   if (z === 'discs') return null;
@@ -3240,6 +3376,10 @@ function endDrag(e, cancel) {
   const d = S.drag; if (!d || (e && e.pointerId !== d.pid)) return;
   S.drag = null;
   if (d.started) { if (d.el.dataset.uid) S.dropRect = { uid: d.el.dataset.uid, r: d.ghost.getBoundingClientRect() }; d.ghost.remove(); d.el.classList.remove('dragging'); if (!cancel) doDrop(d, e.clientX, e.clientY); else { clearDragMarks(); render(); } }
+  else if (!cancel && d.type !== 'mouse' && S.shopFit && isPortrait() && ['shop', 'sshop', 'wshop'].includes(d.z) && $('#shop').classList.contains('fitrow')) {
+    const uid = d.el.dataset.uid; S.shopFit = false;
+    flipRender(() => { render(); const shop = $('#shop'), el = uid && shop.querySelector(`[data-uid="${uid}"]`); if (el) shop.scrollLeft = Math.max(0, el.offsetLeft + el.offsetWidth / 2 - shop.clientWidth / 2); });
+  }
   else if (!cancel && d.type !== 'mouse') showTip(tipFor(d.el), d.el, true);
 }
 document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; const te = e.target.closest('[data-tip]'); if (!te) return; clearTimeout(S.lp); S.lp = setTimeout(() => showTip(`<div class="tbox">${te.dataset.tip}</div>`, te, true), 450); });
@@ -3250,6 +3390,20 @@ document.addEventListener('click', e => {
   if (!$('#tip').classList.contains('modal')) return;
   if (!S.justOpened) hideTip();
 });
+
+// wheel scrolls your board sideways; on touch, swiping the empty board area scrolls it
+document.addEventListener('wheel', e => {
+  const row = e.target.closest('#board'); if (!row || row.scrollWidth <= row.clientWidth + 1) return;
+  const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  row.scrollLeft += d * (e.deltaMode === 1 ? 32 : 1); e.preventDefault();
+}, { passive: false });
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' || S.tgt) return;
+  const row = e.target.closest('#board'); if (!row || e.target.closest('.card')) return;
+  S.swipe = { row, x0: e.clientX, sl: row.scrollLeft, pid: e.pointerId };
+});
+document.addEventListener('pointermove', e => { const w = S.swipe; if (!w || e.pointerId !== w.pid) return; w.row.scrollLeft = w.sl - (e.clientX - w.x0); e.preventDefault(); }, { passive: false });
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, e => { if (S.swipe && e.pointerId === S.swipe.pid) S.swipe = null; }));
 
 // lobby peek
 document.addEventListener('pointerdown', e => {
@@ -3294,8 +3448,10 @@ function updateTimer() {
   const b = $('#endBtn'); if (!b) return;
   if (phase !== 'recruit') return;
   const left = Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000));
-  b.textContent = NET.done ? `WAITING ${left}` : `END TURN ${left}`;
-  b.disabled = !!NET.done; b.classList.toggle('urgent', left <= 10 && !NET.done);
+  const waitN = NET.status ? NET.status.humans.filter(h => h.alive && !h.bot && !h.done).length : 0;
+  b.textContent = NET.done ? `WAITING ${waitN} · ${left}` : `END TURN ${left}`;
+  b.disabled = false; b.classList.toggle('waiting', !!NET.done);
+  if (NET.done) b.dataset.tip = tt('Waiting for other players', 'Click to cancel and keep playing.'); else delete b.dataset.tip; b.classList.toggle('urgent', left <= 10 && !NET.done);
 }
 function startTimer() {
   clearInterval(S.timerId);
@@ -3305,7 +3461,7 @@ function startTimer() {
 
 // ---------- flow ----------
 function beginRecruit() {
-  phase = 'recruit'; S.tgt = null; S.combatOpp = null; clearGhosts();
+  phase = 'recruit'; S.tgt = null; S.shopFit = true; S.combatOpp = null; clearGhosts();
   $('#shop').innerHTML = ''; startTimer(); render();
   // bots think one at a time in the background while you shop
   clearTimeout(S.aiT);
@@ -3321,7 +3477,7 @@ function beginRecruit() {
 }
 function endTurn() {
   if (phase !== 'recruit') return;
-  if (NET.on) { if (NET.done) return; if (S.drag) { if (S.drag.ghost) S.drag.ghost.remove(); S.drag = null; clearDragMarks(); } S.tgt = null; hideTip(); NET.done = true; netSend({ t: 'end' }); updateTimer(); render(); return; }
+  if (NET.on) { if (NET.done) { NET.done = false; netSend({ t: 'unend' }); updateTimer(); render(); return; } if (S.drag) { if (S.drag.ghost) S.drag.ghost.remove(); S.drag = null; clearDragMarks(); } S.tgt = null; hideTip(); NET.done = true; netSend({ t: 'end' }); updateTimer(); render(); return; }
   if (S.drag) { if (S.drag.ghost) S.drag.ghost.remove(); S.drag = null; clearDragMarks(); }
   clearInterval(S.timerId); S.tgt = null; hideTip();
   while (me.pending.length) B.aiResolvePendingOne(me);
@@ -3363,6 +3519,35 @@ function dmgTag(card, n, kind) {
   card.appendChild(t);
   return anim(t, [{ transform: 'translate(-50%,-50%) scale(.3)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1.35)', opacity: 1, offset: .14 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .26 }, { transform: 'translate(-50%,-70%) scale(1)', opacity: 1, offset: .82 }, { transform: 'translate(-50%,-95%) scale(.95)', opacity: 0 }], { duration: 1900, easing: 'ease-out', fill: 'forwards' }).then(() => t.remove());
 }
+// numbers count up/down when they change
+const CNT = new Map();
+function cntKey(e) {
+  if (e.dataset.cnt) return e.dataset.cnt;
+  if (!e.classList.contains('atk') && !e.classList.contains('hp')) return null;
+  const c = e.closest('[data-uid]'); if (!c) return null;
+  return c.dataset.z + ':' + c.dataset.uid + ':' + (e.classList.contains('hp') ? 'h' : 'a');
+}
+function countTo(e, from, to) {
+  cancelAnimationFrame(e._cnt);
+  const t0 = performance.now(), d = Math.min(700, 180 + Math.abs(to - from) * 40);
+  e.classList.add(to < from ? 'cntdn' : 'cntup');
+  const step = now => {
+    const k = Math.min(1, (now - t0) / d);
+    e._cntSet = true; e.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 2)));
+    if (k < 1) e._cnt = requestAnimationFrame(step); else { e._cnt = 0; e.classList.remove('cntdn', 'cntup'); }
+  };
+  e._cnt = requestAnimationFrame(step);
+}
+function scanCounts() {
+  document.querySelectorAll('[data-cnt], [data-uid] .atk, [data-uid] .hp').forEach(e => {
+    const k = cntKey(e); if (!k) return;
+    if (e._cnt) return;
+    const v = parseInt(e.textContent, 10); if (isNaN(v)) return;
+    const old = CNT.get(k); CNT.set(k, v);
+    if (old != null && old !== v) countTo(e, old, v);
+  });
+}
+new MutationObserver(() => { if (S.cntRaf) return; S.cntRaf = requestAnimationFrame(() => { S.cntRaf = 0; scanCounts(); }); }).observe(document.body, { childList: true, subtree: true, characterData: true });
 function setStats(el, m) {
   if (!el || !m) return;
   const a = el.querySelector('.atk'), h = el.querySelector('.hp');
@@ -3427,7 +3612,13 @@ function playCombat(res, done) {
     const rr = row.getBoundingClientRect(), er = el.getBoundingClientRect();
     const want = (x == null ? er.left + er.width / 2 : x) - (rr.left + rr.width / 2);
     const max = row.scrollWidth - row.clientWidth;
-    row.scrollLeft = Math.max(0, Math.min(max, row.scrollLeft + want));
+    const from = row.scrollLeft, to = Math.max(0, Math.min(max, row.scrollLeft + want));
+    if (Math.abs(to - from) < 2) return Promise.resolve();
+    return new Promise(res => {
+      const t0 = performance.now();
+      const step = now => { const k = Math.min(1, (now - t0) / 300); const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; row.scrollLeft = from + (to - from) * e; if (k < 1) requestAnimationFrame(step); else res(); };
+      requestAnimationFrame(step);
+    });
   }
   function geometry(ff, aSide) {
     const mb = $('#main').getBoundingClientRect();
@@ -3466,8 +3657,8 @@ function playCombat(res, done) {
     const sa = info.get(f.a).side;
     L(`${who(f.a)} <small>${ma.atk}/${ma.hp}</small> ⚔ ${who(f.t)} <small>${mt.atk}/${mt.hp}</small>${f.ff ? ' <i class="ff">FRIENDLY FIRE</i>' : ''}`, 'atk');
     // bring both fighters into view in their rows (instant, so every measurement is current)
-    if (f.ff) { const ra = aEl0.getBoundingClientRect(), rt = tEl0.getBoundingClientRect(); centerRowOn(aEl0, (ra.left + ra.right + rt.left + rt.right) / 4); }
-    else { centerRowOn(aEl0); centerRowOn(tEl0); }
+    if (f.ff) { const ra = aEl0.getBoundingClientRect(), rt = tEl0.getBoundingClientRect(); await centerRowOn(aEl0, (ra.left + ra.right + rt.left + rt.right) / 4); }
+    else await Promise.all([centerRowOn(aEl0), centerRowOn(tEl0)]);
     aEl0.classList.add('cfocus'); tEl0.classList.add('cfocus');
     await sleep(T(160));
     const g = geometry(f.ff, sa);
@@ -3630,7 +3821,16 @@ function mainMenu() {
   $('#mLib').dataset.tip = tt('Library', 'Browse every minion, hero, Cyberware, Quickhack, Perk and keyword.');
   $('#mRules').dataset.tip = tt('How to Play', 'Rules, turn flow, combat and every mechanic explained.');
   $('#mPlay').onclick = heroSelect;
-  const mo = $('#mOnline'); if (mo) { mo.classList.toggle('hidden', !window.NCBG_ONLINE); mo.dataset.tip = tt('Online', 'Play against other people. Empty seats are filled with bots.'); mo.onclick = openOnline; }
+  if (window.NCBG_ONLINE) {
+    $('#mPlay').dataset.tip = tt('Play', 'Play online against other people. Empty seats are filled with bots.');
+    $('#mPlay').onclick = openOnline;
+    const bp = $('#botPanel'), mb = $('#mBots');
+    if ($('#mDiff').parentNode !== bp) bp.prepend($('#mDiff'));
+    mb.classList.remove('hidden'); bp.classList.add('hidden');
+    mb.dataset.tip = tt('Play with bots', 'A game against 7 AI opponents.');
+    mb.onclick = () => bp.classList.toggle('hidden');
+    $('#mBotGo').onclick = heroSelect;
+  }
   try { S.diff = +(localStorage.getItem('ncbg-diff') || 0); } catch (e) { S.diff = S.diff || 0; }
   const DT = ['Bots play their usual strategies.', 'Bots plan each turn: they try many combinations of buys, plays, level-ups and board orders, fight each result against likely opponents, and keep the best. Same rules and luck as you.', 'Bots search much deeper: more plans, more test fights, and they play out the following turn before deciding. They also switch to whatever strategy is working. Same rules and luck as you.'];
   const paint = () => $('#mDiff').querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.d === S.diff));
@@ -3695,7 +3895,7 @@ function openRules(inGame) {
   el.innerHTML = `<div class="lhead"><button class="backbtn" id="rulesBack" data-tip="${tt(inGame ? 'Back to game' : 'Back to menu', '')}">◂ ${inGame ? 'GAME' : 'MENU'}</button><h2>HOW TO PLAY</h2></div><div class="rbody">
   ${sec('Goal', `<p>You and 7 AI opponents each run a crew. Every turn you recruit minions, then your board fights another player automatically. Losing a fight costs your hero Health. Be the last one standing.</p>`)}
   ${sec('Turn flow', `<ol><li><b>Recruit.</b> You get ${K('€$')} (3 on turn 1, +1 per turn, max 10) and ${K('RAM')} (2 + ${K('Tavern Tier')}, max 8).</li><li><b>Combat.</b> Boards fight on their own. You watch.</li><li><b>Damage.</b> The loser's hero takes damage equal to the winner's ${K('Tavern Tier')} plus the Tiers of the winner's surviving minions. Early turns cap this (5 until turn 3, 10 until turn 7, 15 while more than 4 players remain).</li></ol>`)}
-  ${sec('In the Tavern', `<ul><li><b>Buy</b> a minion: 3 €$. Drag it down to your hand.</li><li>The Tavern also offers Cyberware and Quickhacks: usually one of each, sometimes two or three.</li><li><b>Play</b> it: drag from your hand onto your board, where you want it. Your board has no size limit.</li><li><b>Sell</b>: drag a board minion up to the Tavern for 1 €$.</li><li><b>Refresh</b> (⟳, 1 €$): new offers. <b>Freeze</b> (❄, free): keep the current offers next turn.</li><li><b>Upgrade</b> (▲): raise your ${K('Tavern Tier')}. The cost drops by 1 every turn.</li><li>Each Refresh also offers one ${K('Cyberware')} (€$) and one ${K('Quickhack')} (RAM).</li><li>Your hand holds 10 cards.</li></ul>`)}
+  ${sec('In the Tavern', `<ul><li><b>Buy</b> a minion: 3 €$. Drag it down to your hand.</li><li>The Tavern also offers Cyberware and Quickhacks: usually one of each, sometimes two or three.</li><li><b>Play</b> it: drag from your hand onto your board, where you want it. Your board has no size limit.</li><li><b>Sell</b>: drag a board minion up to the Tavern for 3 €$.</li><li><b>Refresh</b> (⟳, 1 €$): new offers. <b>Freeze</b> (❄, free): keep the current offers next turn.</li><li><b>Upgrade</b> (▲): raise your ${K('Tavern Tier')}. The cost drops by 1 every turn.</li><li>Each Refresh also offers one ${K('Cyberware')} (€$) and one ${K('Quickhack')} (RAM).</li><li>Your hand holds 10 cards.</li></ul>`)}
   ${sec('Combat rules', `<ul><li>The player with more minions attacks first (random if tied). Sides alternate; minions attack from left to right.</li><li>Each attack hits a random enemy, but ${K('Bodyguard')} minions must be attacked first and ${K('Optical Camo')} minions can't be targeted until they attack.</li><li>Attacker and target deal their Attack to each other at the same time, unless the attacker has ${K('Kerenzikov')}.</li><li>A fight ends when one side has no minions left (or neither can attack: a tie).</li><li>Order matters: put minions that should attack first on the left, and use adjacency for Aldecaldos.</li></ul>`)}
   ${sec('Triples and Golden minions', `<p>Get three copies of the same minion and they combine into one ${K('Golden')} minion in your hand. It keeps the stats of all three copies, and its effects are tripled. Playing it lets you ${K('Discover')} a minion from one Tier higher. When the Tavern offers a minion that would complete a triple, it glows gold and says TRIPLE.</p><p>Higher Tavern Tiers stock stronger minions: everything in the Tavern comes with bonus stats that grow with your Tier.</p>`)}
   ${sec('Cyberware, Humanity and Cyberpsychosis', `<p>${K('Cyberware')} is bought with €$ and dragged onto a board minion to install it. Each piece gives stats or keywords and uses some of the minion's ${K('Humanity')} (the diamond pips on the card). Most minions have 3 Humanity; Militech and Arasaka have 4, Voodoo Boys 2, Maelstrom 0.</p><p>Install more than a minion's Humanity and it becomes a ${K('Cyberpsycho')}: double Attack in combat, and it ignores Bodyguard and Optical Camo. The price: 40% of its attacks hit one of your own minions, and ${K('Max-Tac')} hunts it. At the start of each turn it may be destroyed, 8% per turn it has been a Cyberpsycho, up to 75%. Maelstrom are built for it: their Cyberpsychos get quadruple Attack and quadruple Health instead, and Max-Tac hunts them far less (1% per turn, up to 20%). The card shows the current chance. Memory Wipe and Back-Alley Ripper restore Humanity.</p><p>Enemies can do it to you too: the Cyberpsychosis Quickhack and Madness Daemon turn an enemy minion into a ${K('Turncoat')} that attacks its own side.</p><p>Some Cyberware is a gamble: random rolls, random keywords, or ${K('Malicious')} side effects in exchange for cheap power. Random Cyberware has a violet frame; malicious Cyberware has a red one.</p>`)}
@@ -3858,16 +4058,22 @@ function enterGame() {
 function netLeaveGame() {
   netSend({ t: 'quit' });
   NET.on = false; NET.done = false; NET.capT = null; NET.queued = null; netPatch(false);
-  clearInterval(S.timerId); G = null;
+  clearInterval(S.timerId); G = null; NET.status = null;
+  const gc = $('#gameChat'); if (gc) gc.remove();
 }
 function netMsg(m) {
   switch (m.t) {
-    case 'welcome': NET.token = m.token; try { sessionStorage.setItem('ncbg-token', m.token); } catch (e) { } if (!m.inMatch && NET.view !== 'room' && NET.view !== 'queue') { NET.view = NET.view || 'home'; onlineView(); } break;
+    case 'welcome': if (NET.autoJoin && !m.inMatch) { const c = NET.autoJoin; NET.autoJoin = null; netSend({ t: 'join', code: c }); }
+      NET.token = m.token; try { sessionStorage.setItem('ncbg-token', m.token); } catch (e) { } if (!m.inMatch && NET.view !== 'room' && NET.view !== 'queue') { NET.view = NET.view || 'home'; onlineView(); } break;
     case 'error': NET.err = m.text; onlineView(); break;
     case 'left': NET.view = 'home'; NET.room = null; onlineView(); break;
     case 'queue': NET.view = 'queue'; NET.queue = m; onlineView(); break;
-    case 'room': NET.view = 'room'; NET.room = m; NET.err = ''; onlineView(); break;
-    case 'matchStart': NET.view = 'match'; break;
+    case 'rooms': NET.rooms = m.rooms; if (NET.view === 'home' || !NET.view) onlineView(); break;
+    case 'chat': chatAdd(m); break;
+    case 'picks': NET.picks = m.players; pickStatus(); break;
+    case 'status': NET.status = m; if (NET.on && G) { renderLobby(); updateTimer(); waitNote(); } break;
+    case 'room': if (!NET.room || NET.room.code !== m.code) NET.chat = []; NET.view = 'room'; NET.room = m; NET.err = ''; onlineView(); break;
+    case 'matchStart': NET.view = 'match'; NET.chat = []; NET.unread = 0; NET.picks = null; NET.status = null; break;
     case 'heroes': NET.picked = m.picked || null; NET.hsEnd = Date.now() + (m.left || 0); netHeroes(m); break;
     case 'heroPicked': NET.picked = m.id; netHeroes(NET.heroMsg); break;
     case 'turn':
@@ -3898,7 +4104,7 @@ function netCombat(m) {
     if (!me.alive || G.over) { phase = 'result'; render(); showResult(); return; }
     netSend({ t: 'ready' });
     if (NET.queued) { const q = NET.queued; NET.queued = null; phase = 'wait'; netMsg(q); }
-    else { phase = 'wait'; render(); }
+    else { phase = 'wait'; render(); waitNote(); }
   });
 }
 function netHeroes(m) {
@@ -3914,6 +4120,7 @@ function netHeroes(m) {
   clearInterval(NET.hsT);
   const tick = () => { const h1 = $('#heroSel h1'); if (!h1 || phase !== 'hero') { clearInterval(NET.hsT); return; } h1.textContent = `Choose your hero · ${Math.max(0, Math.ceil((end - Date.now()) / 1000))}`; };
   NET.hsT = setInterval(tick, 250); tick();
+  pickStatus();
 }
 // ---------- online screen ----------
 function openOnline() {
@@ -3931,16 +4138,21 @@ function onlineView() {
     const q = NET.queue || { count: 1 };
     body = `<div class="on-big">${q.count} / 8</div><div class="on-msg">Finding players · <span id="onCd"></span></div><button class="mbtn sec" id="onCancel">CANCEL</button>`;
   } else if (NET.view === 'room' && NET.room) {
-    const r = NET.room;
-    body = `<div class="on-code">${r.code}</div>
-      <div class="on-list">${r.players.map(p => `<div class="on-p ${p.me ? 'me' : ''}">${p.name}${p.id === r.host ? ' <em>HOST</em>' : ''}</div>`).join('')}${r.fillBots ? Array.from({ length: Math.max(0, 8 - r.players.length) }, () => '<div class="on-p bot">BOT</div>').join('') : ''}</div>
-      ${r.isHost ? `<label class="on-tog"><input type="checkbox" id="onFill" ${r.fillBots ? 'checked' : ''}> Fill empty seats with bots</label><button class="mbtn" id="onStart">START</button>` : ''}
+    const r = NET.room, meP = r.players.find(p => p.me) || {};
+    const others = r.players.filter(p => p.id !== r.host);
+    const allReady = others.every(p => p.ready);
+    body = `<button class="on-code" id="onCopy" data-tip="${tt('Copy invite link', roomLink(r.code))}">${r.code}<i>${NET.copied ? 'LINK COPIED' : 'COPY LINK'}</i></button>
+      <div class="on-list">${r.players.map(p => `<div class="on-p ${p.me ? 'me' : ''} ${p.id === r.host || p.ready ? 'rdy' : ''}">${esc(p.name)}${p.id === r.host ? ' <em>HOST</em>' : p.ready ? ' <em>READY</em>' : ''}</div>`).join('')}${r.fillBots ? Array.from({ length: Math.max(0, 8 - r.players.length) }, () => '<div class="on-p bot">BOT</div>').join('') : ''}</div>
+      ${r.isHost ? `<label class="on-tog"><input type="checkbox" id="onFill" ${r.fillBots ? 'checked' : ''}> Fill empty seats with bots</label><button class="mbtn" id="onStart" ${allReady ? '' : 'disabled'}>START</button>` : `<button class="mbtn ${meP.ready ? 'on' : ''}" id="onReady">${meP.ready ? 'READY ✓' : 'READY'}</button>`}
+      ${chatHtml('onChat')}
       <button class="mbtn sec" id="onLeave">LEAVE</button>`;
   } else {
-    body = `<input id="onName" class="on-in" maxlength="16" placeholder="NICKNAME" value="${name.replace(/"/g, '')}">
+    const rl = NET.rooms || [];
+    body = `<input id="onName" class="on-in" maxlength="16" placeholder="NICKNAME" value="${esc(name)}">
       <button class="mbtn" id="onFind">FIND MATCH</button>
       <button class="mbtn sec" id="onCreate">CREATE ROOM</button>
-      <div class="on-join"><input id="onCode" class="on-in" maxlength="4" placeholder="CODE"><button class="mbtn sec" id="onJoin">JOIN</button></div>`;
+      <div class="on-join"><input id="onCode" class="on-in" maxlength="4" placeholder="CODE"><button class="mbtn sec" id="onJoin">JOIN</button></div>
+      ${rl.length ? `<div class="on-rooms">${rl.map(r => `<button class="on-room" data-code="${r.code}"><b>${r.code}</b><span>${esc(r.host)}</span><i>${r.count}/8</i></button>`).join('')}</div>` : ''}`;
   }
   el.innerHTML = `<button class="backbtn" id="onBack">◂ MENU</button><div class="mlogo"><span class="m1">NIGHT CITY</span><span class="m2">ONLINE</span></div><div class="mbtns on-box">${body}${NET.err ? `<div class="on-err">${NET.err}</div>` : ''}</div>`;
   const $o = id => el.querySelector(id);
@@ -3955,6 +4167,10 @@ function onlineView() {
   b('#onCancel', () => netSend({ t: 'unqueue' }));
   b('#onLeave', () => netSend({ t: 'leave' }));
   b('#onStart', () => netSend({ t: 'start' }));
+  b('#onReady', () => { const meP = NET.room.players.find(p => p.me); netSend({ t: 'ready', on: !(meP && meP.ready) }); });
+  b('#onCopy', () => { const l = roomLink(NET.room.code); const done = () => { NET.copied = true; onlineView(); setTimeout(() => { NET.copied = false; onlineView(); }, 1600); }; try { navigator.clipboard.writeText(l).then(done, () => { prompt('Invite link', l); }); } catch (e) { prompt('Invite link', l); } });
+  el.querySelectorAll('.on-room').forEach(x => x.onclick = () => { saveName(); NET.err = ''; netSend({ t: 'join', code: x.dataset.code }); });
+  chatBind(el.querySelector('#onChat'));
   const f = $o('#onFill'); if (f) f.onchange = () => netSend({ t: 'fill', on: f.checked });
   clearInterval(NET.qT);
   if (NET.view === 'queue' && NET.queue) {
@@ -3966,6 +4182,53 @@ function onlineView() {
 // resume a match after a page reload
 try { if (window.NCBG_ONLINE && sessionStorage.getItem('ncbg-token')) { NET.want = true; netConnect(); } } catch (e) { }
 window.NCBG_STATE = () => ({ turn: G ? G.turn : null, phase, board: me && me.board ? me.board.length : null, hp: me ? me.hp : null, alive: me ? me.alive : null });
+
+const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const roomLink = code => location.origin + location.pathname + '?room=' + code;
+function netTag(p) {
+  const h = NET.status && NET.status.humans.find(x => x.id === p.id); if (!h || p === me || !h.alive) return '';
+  if (h.bot) return '<em class="lb-tag off">AWAY</em>';
+  return h.done ? `<em class="lb-tag rd">${NET.status.phase === 'recruit' ? 'READY' : 'DONE'}</em>` : `<em class="lb-tag pl">${NET.status.phase === 'recruit' ? 'PLAYING' : 'WATCHING'}</em>`;
+}
+function waitNote() {
+  if (!NET.on || phase !== 'wait') return;
+  const n = NET.status ? NET.status.humans.filter(h => h.alive && !h.bot && !h.done && (!me || h.id !== me.id)).length : 0;
+  const b = $('#endBtn'); if (!b) return;
+  b.textContent = n ? `WAITING ${n}` : 'WAITING'; b.disabled = true; b.classList.add('waiting');
+  b.dataset.tip = tt('Waiting for other players', n + ' still watching their fight.');
+}
+function pickStatus() {
+  const box = $('#heroSel'); if (!box || box.classList.contains('hidden') || !NET.on) return;
+  let el = $('#pickSt'); if (!el) { el = document.createElement('div'); el.id = 'pickSt'; $('#heroOpts').after(el); }
+  el.innerHTML = (NET.picks || []).map(p => `<span class="${p.picked ? 'ok' : ''} ${p.gone ? 'gone' : ''}">${esc(p.name)}${p.picked ? ' ✓' : ' …'}</span>`).join('');
+}
+// ---------- chat ----------
+NET.chat = []; NET.unread = 0;
+function chatHtml(id) { return `<div class="chat" id="${id}"><div class="chat-log">${chatLines()}</div><form class="chat-f"><input maxlength="200" placeholder="Message" autocomplete="off"><button>SEND</button></form></div>`; }
+function chatLines() { return NET.chat.map(m => `<div class="chat-m"><b>${esc(m.from)}</b> ${esc(m.text)}</div>`).join(''); }
+function chatBind(el) {
+  if (!el) return;
+  const log = el.querySelector('.chat-log'); log.scrollTop = log.scrollHeight;
+  el.querySelector('form').onsubmit = e => { e.preventDefault(); const i = el.querySelector('input'); const t = i.value.trim(); if (t) netSend({ t: 'chat', text: t }); i.value = ''; i.focus(); };
+  el.querySelector('input').addEventListener('keydown', e => e.stopPropagation());
+}
+function chatAdd(m) {
+  NET.chat.push(m); if (NET.chat.length > 100) NET.chat.shift();
+  document.querySelectorAll('.chat .chat-log').forEach(log => { const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; log.innerHTML = chatLines(); if (stick) log.scrollTop = log.scrollHeight; });
+  const panel = $('#gameChat');
+  if (NET.on && G && (!panel || panel.classList.contains('hidden'))) { NET.unread++; const bc = $('#bChat'); if (bc) bc.innerHTML = `✉<b class="chatn">${NET.unread}</b>`; }
+}
+function chatToggle() {
+  let p = $('#gameChat');
+  if (!p) { p = document.createElement('div'); p.id = 'gameChat'; p.className = 'hidden'; p.innerHTML = chatHtml('gameChatBox') + '<button class="chat-x">✕</button>'; document.body.appendChild(p); chatBind(p.querySelector('.chat')); p.querySelector('.chat-x').onclick = () => chatToggle(); }
+  p.classList.toggle('hidden');
+  if (!p.classList.contains('hidden')) { NET.unread = 0; const bc = $('#bChat'); if (bc) bc.textContent = '✉'; const log = p.querySelector('.chat-log'); log.innerHTML = chatLines(); log.scrollTop = log.scrollHeight; p.querySelector('input').focus(); }
+}
+// invite link: ?room=CODE
+try {
+  const rc = window.NCBG_ONLINE && new URLSearchParams(location.search).get('room');
+  if (rc) { NET.autoJoin = rc.toUpperCase(); history.replaceState(null, '', location.pathname); setTimeout(() => { if (phase === 'menu') openOnline(); }, 400); }
+} catch (e) { }
 
 B.hooks.onEvent = (type, data) => {
   if (type === 'scan' && data === me) setTimeout(() => {

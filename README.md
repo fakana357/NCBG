@@ -3,9 +3,10 @@
 One Node.js process serves the game page and runs every match. Each match runs in its own worker thread with the full game engine, so the server is the referee: players only send their moves.
 
 - **Find Match** waits at most 30 seconds, groups everyone who is waiting (up to 8 per match) and fills the rest with bots.
-- **Rooms** get a 4-letter code. The host can start any time, with or without bots (at least 2 players without bots).
+- **Rooms** are listed for everyone on the Play screen, and each has a 4-letter code with a copyable invite link (`/?room=CODE`). Players press Ready; the host starts when everyone is ready, with or without bots (at least 2 players without bots).
+- **Chat** in rooms and during matches.
 - Bots get nicknames and a mix of difficulties (about 60% Normal, 30% Hard, 10% Very Hard).
-- Recruit timer: 45 s on turn 1, +5 s per turn, up to 90 s. The turn ends early when every player has pressed End Turn.
+- Recruit timer: 45 s on turn 1, +5 s per turn, up to 90 s. The turn ends early when every player has pressed End Turn; End Turn can be pressed again to keep playing.
 - If someone disconnects, a bot plays their seat until they reload the page and take it back.
 
 ## Deploy on Render (free, no command line)
