@@ -1548,7 +1548,7 @@ function engBonus(p, m, list) {
 }
 function effStats(m, p) { const [a, h] = engBonus(p, m); return { atk: m.atk + a, hp: m.hp + h }; }
 function cloneMods(list, m) { if (list.some(x => x.id === 'bio_serum')) m.reborn = true; if (list.some(x => x.id === 'bio_weapon')) m.venom = true; }
-function cloneStat(p) { const k = cntId(p.board || [], 'bio_hive'); return (5 * (p.tier || 1) + (p.mutation || 0)) * (k ? k + 1 : 1); }
+function cloneStat(p) { const k = cntId(p.board || [], 'bio_hive'); return (6 * (p.tier || 1) + (p.mutation || 0)) * (k ? k + 1 : 1); }
 function cloneMade(p) { if (p.splTurn === G.turn) return; const k = (p.board || []).reduce((s, x) => s + (x.id === 'bio_splicer' ? gc(x) : 0), 0); if (k) { p.mutation = (p.mutation || 0) + k; p.splTurn = G.turn; } }
 function addClone(p, pos) {
   const m = makeMinion('tok_clone'); const st = cloneStat(p); m.atk = st; m.hp = st; m.noPool = true; cloneMods(p.board, m);
@@ -2511,7 +2511,7 @@ for (const c of Object.values(CARDS)) {
   c.sk = REP_HOOKS.some(h => c[h]) || /perm\(|engram|Engram|tavBuff/.test(src) ? 'rep' : 'one';
 }
 // faction stat boosts (by win-rate gap)
-const TRIBE_STAT_BOOST = { MOX: -.2, VAL: 1.15, ALD: 2.5, MAE: .7, VDB: .2, MIL: 0, TYG: 1.8, ARA: 3.2, ANI: 3.4, BIO: 2.3 };
+const TRIBE_STAT_BOOST = { MOX: -.2, VAL: 1.15, ALD: 2.5, MAE: .7, VDB: .2, MIL: 0, TYG: 1.8, ARA: 3.2, ANI: 3.4, BIO: 2.8 };
 for (const c of Object.values(CARDS)) { const k = TRIBE_STAT_BOOST[c.tribe]; if (k && !c.token) { c.atk = Math.ceil(c.atk * (1 + k)); c.hp = Math.ceil(c.hp * (1 + k)); } }
 const HEROES = {}; const HERO_LIST = [];
 function Hh(id, name, armor, power) { const h = { id, name, armor, power }; HEROES[id] = h; HERO_LIST.push(h); }
