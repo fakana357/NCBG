@@ -48,7 +48,7 @@ const KW_DESC = {
   'Mutation': 'Every Clone you create gets +1/+1 for each Mutation.',
   'Clone': 'A Biotechnica token, created with +Mutation/+Mutation. Selling one gives no €$.',
   'RAM': 'Spent on Quickhacks. Refills every turn; your maximum grows with Tavern Tier.',
-  'Engram': 'A permanent bonus that every Arasaka you control has. Uploads add to it.',
+  'Engram': 'A copy of a mind kept in your Engram vault: the minion\'s stats and abilities. Arasaka re-embody Engrams as constructs or implant them into living minions.',
   'faction': 'Minions with the same faction name. Neutral minions have no faction.',
   'Loyalty': 'How many of your turns the minion has spent on your board.',
 };
@@ -66,12 +66,23 @@ function makeMinion(id, golden) {
 }
 function makeSpell(id) { return { uid: UID++, kind: 'spell', id }; }
 function makeWare(id) { return { uid: UID++, kind: 'ware', id }; }
-const gm = m => (m.golden ? 3 : 1);
+// ---- effect scaling: permanent repeating gains x Tavern Tier, everything else x Tier x Turn ----
+let CUR_CS = null;
+function ownerOf(m) {
+  if (!m) return null;
+  if (m.side != null && CUR_CS && CUR_CS.sides[m.side]) return CUR_CS.sides[m.side].p;
+  if (G) for (const p of G.players) if ((p.board || []).includes(m) || (p.hand || []).includes(m) || (p.shop || []).includes(m)) return p;
+  return null;
+}
+function scaleK(p, kind) { if (!p || !G) return 1; const t = p.tier || 1; return kind === 'rep' ? t : t * Math.max(1, G.turn || 1); }
+const gc = m => (m.golden ? 3 : 1);
+const gm = m => gc(m) * scaleK(ownerOf(m), (CARDS[m.id] || {}).sk);
 function buff(m, a, h) { a = Math.ceil(a); h = Math.ceil(h); m.atk = Math.max(0, m.atk + a); m.hp += h; }
 function humMax(m, p) {
   const c = CARDS[m.id];
   let h = (c.hum != null ? c.hum : (c.tribe ? TRIBES[c.tribe].hum : 3)) + (m.humMod || 0);
-  if (p && p.perks && p.perks.some(x => x.id === 'pk_tolerance')) h += 2;
+  if (p && p.perks && p.perks.some(x => x.id === 'pk_tolerance')) h += 3;
+  if (p && p.perks && p.perks.some(x => x.id === 'pk_dealer')) h += (m.ware || []).filter(w => WARE[w] && WARE[w].hum > 0).length;
   return h;
 }
 function arsenalOf(p) { return (p && p.arsenal) || 0; }
@@ -81,13 +92,13 @@ function factions(list) { const s = new Set(); for (const x of list) if (x.tribe
 function rally(list) { return factions(list) * rallyMult(list); }
 function engMult(list) { const k = cntId(list, 'ara_mikoshi'); return k ? k + 1 : 1; }
 function engBonus(p, m, list) {
-  if (!p || !p.engram || p.isGhost) return [0, 0];
+  return [0, 0];
   const sab = m.tribe !== 'ARA'; if (sab && !(p.hero && p.hero.id === 'saburo')) return [0, 0];
   const k = engMult(list || p.board) * (hasPerk(p, 'pk_ara2') ? 1.5 : 1); return sab ? [Math.ceil(p.engram.a * k / 2), Math.ceil(p.engram.h * k / 2)] : [Math.ceil(p.engram.a * k), Math.ceil(p.engram.h * k)];
 }
 function effStats(m, p) { const [a, h] = engBonus(p, m); return { atk: m.atk + a, hp: m.hp + h }; }
-function cloneStat(p) { const k = cntId(p.board || [], 'bio_hive'); return (1 + (p.mutation || 0)) * (k ? k + 1 : 1); }
-function cloneMade(p) { if (p.splTurn === G.turn) return; const k = (p.board || []).reduce((s, x) => s + (x.id === 'bio_splicer' ? gm(x) : 0), 0); if (k) { p.mutation = (p.mutation || 0) + k; p.splTurn = G.turn; } }
+function cloneStat(p) { const k = cntId(p.board || [], 'bio_hive'); return (2 * (p.tier || 1) + (p.mutation || 0)) * (k ? k + 1 : 1); }
+function cloneMade(p) { if (p.splTurn === G.turn) return; const k = (p.board || []).reduce((s, x) => s + (x.id === 'bio_splicer' ? gc(x) : 0), 0); if (k) { p.mutation = (p.mutation || 0) + k; p.splTurn = G.turn; } }
 function addClone(p, pos) {
   const m = makeMinion('tok_clone'); const st = cloneStat(p); m.atk = st; m.hp = st; m.noPool = true;
   pos = Math.max(0, Math.min(pos == null ? p.board.length : pos, p.board.length)); p.board.splice(pos, 0, m);
@@ -112,7 +123,9 @@ function isPsycho(m, p) { return humUsed(m) > humMax(m, p); }
 
 // ---------------- recruit helpers ----------------
 function inLobby(c) { return !c.tribe || G.tribes.includes(c.tribe); }
-function boardOf(p, tribe) { return p.board.filter(x => !tribe || x.tribe === tribe); }
+// Mox count as every faction
+const isTr = (x, t) => !!x && (x.tribe === t || (x.tribe === 'MOX' && t !== 'MOX' && t != null));
+function boardOf(p, tribe) { return p.board.filter(x => !tribe || isTr(x, tribe)); }
 function randOf(a) { return a.length ? pick(a) : null; }
 function giveCard(p, card) { if (p.hand.length < HAND_MAX) { p.hand.push(card); if (card.kind === 'minion') checkTriple(p); return true; } return false; }
 function giveSpell(p, id) { giveCard(p, makeSpell(id)); }
@@ -139,12 +152,12 @@ function spellMult(p) { let n = 1; for (const x of p.board) if (x.id === 'vdb_ra
 function ramDiscount(p) {
   let d = 0; if (p.hero.id === 'reed') d++;
   if (hasPerk(p, 'pk_deck')) d++;
-  let sm = 0; for (const x of p.board) if (x.id === 'vdb_spider') sm = Math.max(sm, gm(x)); d += sm;
+  let sm = 0; for (const x of p.board) if (x.id === 'vdb_spider') sm = Math.max(sm, gc(x)); d += sm;
   return d;
 }
 function spellCost(p, sp) { return Math.max(0, SPELLS[sp.id].cost - ramDiscount(p)); }
 function wareCost(p, w) {
-  let d = 0; for (const x of p.board) if (x.id === 'mil_quartermaster') d = Math.max(d, gm(x));
+  let d = 0; for (const x of p.board) if (x.id === 'mil_quartermaster') d = Math.max(d, gc(x));
   if (hasPerk(p, 'pk_dealer')) d++;
   if (hasPerk(p, 'pk_mil1')) d++;
   if (p.hero.id === 'meredith') d++;
@@ -153,9 +166,10 @@ function wareCost(p, w) {
 function hasPerk(p, id) { return (p.perks || []).some(x => x.id === id); }
 function ramMax(p) {
   let r = Math.min(8, 2 + p.tier) + (p.ramBonus || 0);
-  for (const x of p.board) if (x.id === 'vdb_netrunner') r += 2 * gm(x);
-  if (hasPerk(p, 'pk_ram')) r += 2;
-  if (hasPerk(p, 'pk_vdb1')) r += 3;
+  for (const x of p.board) if (x.id === 'vdb_netrunner') r += 2 * gc(x);
+  if (hasPerk(p, 'pk_ram')) r += 3;
+  if (hasPerk(p, 'pk_deck')) r += 2;
+  if (hasPerk(p, 'pk_vdb1')) r += 4;
   if (p.hero.id === 'placide') r += 1;
   const bw = cntId(p.board, 'vdb_blackwall'); if (bw) r *= bw + 1;
   return r;
@@ -164,16 +178,22 @@ function buyCost(p) { return p.hero.id === 'dexter' && !p.boughtThisTurn ? 2 : 3
 function upgradeCost(p) { let c = p.upCost; return Math.max(0, c); }
 function shopSize(p) { let n = SHOP_SIZE[p.tier]; if (hasPerk(p, 'pk_cred')) n++; if (p.hero && p.hero.id === 'hands') n += 2; return n; }
 function addEngram(p, a, h) { p.engram.a += Math.ceil(a); p.engram.h += Math.ceil(h); }
+// Soulkiller: minds stored as Engrams in your vault
+const VAULT_MAX = 8;
+const mind = m => ({ id: m.id, golden: !!m.golden, atk: Math.max(1, m.ma != null ? m.ma : m.atk), hp: Math.max(1, m.mx != null ? m.mx : m.hp) });
+function upload(p, m) { if (!p || p.isGhost || !m || !CARDS[m.id] || CARDS[m.id].token) return; p.vault = p.vault || []; p.vault.push(mind(m)); if (p.vault.length > VAULT_MAX) p.vault.shift(); emit('upload', { p, m }); }
+const strongest = l => l.length ? l.reduce((a, b) => (b.atk + b.hp) > (a.atk + a.hp) ? b : a) : null;
 function psychoCheck(p, m, wasPsycho) {
-  if (!wasPsycho && isPsycho(m, p)) { if (hasPerk(p, 'pk_mae1')) buff(m, 3, 3); for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onPsycho) c.onPsycho(p, x, m); } emit('psycho', { p, m }); }
+  if (!wasPsycho && isPsycho(m, p)) { if (hasPerk(p, 'pk_mae1')) buff(m, 3 * p.tier, 3 * p.tier); for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onPsycho) c.onPsycho(p, x, m); } emit('psycho', { p, m }); }
 }
 function installWare(p, m, wid, free) {
   const w = WARE[wid]; const was = isPsycho(m, p);
   m.ware.push(wid); p.arsenal = (p.arsenal || 0) + (hasPerk(p, 'pk_mil1') ? 2 : 1);
-  const rnd4 = p.board.reduce((s, x) => s + (x.id === 'mil_rnd' ? gm(x) : 0), 0) * p.arsenal;
+  const rnd4 = p.board.reduce((s, x) => s + (x.id === 'mil_rnd' ? gm(x) : 0), 0) * Math.floor(p.arsenal / 2);
   if (rnd4) buff(m, rnd4, rnd4);
   const mult = m.id === 'mil_behemoth' ? (m.golden ? 3 : 2) : 1;
-  for (let i = 0; i < mult; i++) { buff(m, w.atk || 0, w.hp || 0); if (w.install) w.install(p, m); }
+  const wk = kOne(p);
+  for (let i = 0; i < mult; i++) { buff(m, (w.atk || 0) * wk, (w.hp || 0) * wk); if (w.install) w.install(p, m); }
   for (const k of (w.kw || [])) m[k] = true;
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onInstall) c.onInstall(p, x, m, w); }
   psychoCheck(p, m, was);
@@ -185,49 +205,49 @@ function C(id, name, tier, tribe, atk, hp, o) {
   const c = Object.assign({ id, name, tier, tribe, atk, hp, kw: [], pool: true, text: '' }, o || {});
   CARDS[id] = c; if (c.pool) CARD_LIST.push(c); return c;
 }
-const isT = t => m => m.tribe === t;
+const isT = t => m => isTr(m, t);
 C('tok_mackinaw', 'Mackinaw', 1, 'ALD', 1, 1, { kw: ['taunt'], pool: false, token: true });
 C('tok_clone', 'Clone', 1, 'BIO', 1, 1, { pool: false, token: true, text: 'Grown in a vat. Created with +Mutation/+Mutation.' });
 C('tok_drone', 'Combat Drone', 1, 'MIL', 2, 2, { pool: false, token: true });
 
 // ---- MILITECH: Arsenal. Every piece of Cyberware you install raises Arsenal; Militech scale off it. Humanity 4 ----
-C('mil_grunt', 'Militech Grunt', 1, 'MIL', 3, 2, { text: g => `Jack In: Get ${g > 1 ? 'three random Tier 1 Cyberware' : 'a random Tier 1 Cyberware'}.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) giveWare(p, randomWareId(p, 1)); } });
+C('mil_grunt', 'Militech Grunt', 1, 'MIL', 3, 2, { text: g => `Jack In: Get ${g.c > 1 ? 'three random Tier 1 Cyberware' : 'a random Tier 1 Cyberware'}.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) giveWare(p, randomWareId(p, 1)); } });
 C('mil_supply', 'Supply Drone', 1, 'MIL', 1, 3, { text: g => `After you install Cyberware on a Militech, give it +${3 * g}/+${3 * g}.`,
-  onInstall: (p, m, t) => { if (t.tribe === 'MIL') buff(t, 3 * gm(m), 3 * gm(m)); } });
-C('mil_recruit', 'Militech Recruit', 1, 'MIL', 2, 3, { text: g => `Start of Combat: Gain +${g}/+${g} for each Arsenal.`,
-  soc: (cs, m, side) => { const n = arsenalOf(cs.sides[side].p) * gm(m); cs.buff(m, n, n); } });
+  onInstall: (p, m, t) => { if (isTr(t, 'MIL')) buff(t, 3 * gm(m), 3 * gm(m)); } });
+C('mil_recruit', 'Militech Recruit', 1, 'MIL', 2, 3, { text: g => `Start of Combat: Gain +${g}/+${g} for every 2 Arsenal.`,
+  soc: (cs, m, side) => { const n = Math.floor(arsenalOf(cs.sides[side].p) / 2) * gm(m); cs.buff(m, n, n); } });
 C('mil_quartermaster', 'Quartermaster', 2, 'MIL', 3, 4, { text: g => `Your Cyberware costs (${g}) less €$.` });
 C('mil_medic', 'Combat Medic', 2, 'MIL', 3, 2, { text: g => `Flatline: Give a random friendly minion with Cyberware +${2 * g}/+${2 * g} for each piece it has.`,
   dr: (cs, m, side) => { const t = randOf(cs.allies(side).filter(x => x.ware && x.ware.length)); if (t) { const n = t.ware.length * 2 * gm(m); cs.buff(t, n, n); } } });
-C('mil_dealer', 'Arms Dealer', 3, 'MIL', 3, 3, { text: g => `At the start of your turn, get ${g > 1 ? 'three random Tier 1–2 Cyberware' : 'a random Tier 1–2 Cyberware'}.`,
-  sot: (p, m) => { for (let i = 0; i < gm(m); i++) giveWare(p, randomWareId(p, 2)); } });
+C('mil_dealer', 'Arms Dealer', 3, 'MIL', 3, 3, { text: g => `At the start of your turn, get ${g.c > 1 ? 'three random Tier 1–2 Cyberware' : 'a random Tier 1–2 Cyberware'}.`,
+  sot: (p, m) => { for (let i = 0; i < gc(m); i++) giveWare(p, randomWareId(p, 2)); } });
 C('mil_trooper', 'Militech Trooper', 3, 'MIL', 2, 5, { text: g => `Start of Combat: Gain +${2 * g}/+${2 * g} for each piece of Cyberware on your minions.`,
   soc: (cs, m, side) => { const n = cs.allies(side).reduce((s, x) => s + (x.ware ? x.ware.length : 0), 0); cs.buff(m, 2 * n * gm(m), 2 * n * gm(m)); } });
-C('mil_rnd', 'R&D Engineer', 3, 'MIL', 3, 4, { text: g => `Cyberware you install gives an extra +${g}/+${g} for each Arsenal.` });
-C('mil_fieldrip', 'Field Ripperdoc', 4, 'MIL', 5, 6, { text: g => `Jack In: Install ${g > 1 ? 'three random Cyberware' : 'a random Cyberware'} on a friendly Militech.`, target: 'MIL',
-  bc: (p, m, t) => { if (t) for (let i = 0; i < gm(m); i++) installWare(p, t, randomWareId(p)); } });
+C('mil_rnd', 'R&D Engineer', 3, 'MIL', 3, 4, { text: g => `Cyberware you install gives an extra +${g}/+${g} for every 2 Arsenal.` });
+C('mil_fieldrip', 'Field Ripperdoc', 4, 'MIL', 5, 6, { text: g => `Jack In: Install ${g.c > 1 ? 'three random Cyberware' : 'a random Cyberware'} on a friendly Militech.`, target: 'MIL',
+  bc: (p, m, t) => { if (t) for (let i = 0; i < gc(m); i++) installWare(p, t, randomWareId(p)); } });
 C('mil_hellhound', 'Hellhound Squad', 4, 'MIL', 4, 5, { text: g => `After you install Cyberware, give your Militech +${3 * g}/+${3 * g}.`,
   onInstall: (p, m) => boardOf(p, 'MIL').forEach(x => buff(x, 3 * gm(m), 3 * gm(m))) });
-C('mil_swarm', 'Drone Swarm', 4, 'MIL', 3, 3, { text: g => `Start of Combat: Summon a 2/2 Combat Drone for every 2 Arsenal (up to ${6 * g}).`,
-  soc: (cs, m, side) => { const n = Math.min(6 * gm(m), Math.floor(arsenalOf(cs.sides[side].p) / 2)); let pos = cs.sides[side].b.indexOf(m) + 1; for (let i = 0; i < n; i++) cs.summon(side, 'tok_drone', pos++, false); } });
+C('mil_swarm', 'Drone Swarm', 4, 'MIL', 3, 3, { text: g => `Start of Combat: Summon a 2/2 Combat Drone for every 2 Arsenal (up to ${6 * g.c}).`,
+  soc: (cs, m, side) => { const n = Math.min(6 * gc(m), Math.floor(arsenalOf(cs.sides[side].p) / 2)); let pos = cs.sides[side].b.indexOf(m) + 1; for (let i = 0; i < n; i++) cs.summon(side, 'tok_drone', pos++, false); } });
 C('mil_commando', 'Chrome Commando', 5, 'MIL', 6, 6, { text: g => `Start of Combat: Give each friendly minion +${2 * g}/+${g} for each piece of Cyberware it has.`,
   soc: (cs, m, side) => cs.allies(side).forEach(x => x.ware && x.ware.length && cs.buff(x, 2 * x.ware.length * gm(m), x.ware.length * gm(m))) });
-C('mil_reaper', 'Reaper Squad', 5, 'MIL', 5, 5, { text: g => `Start of Combat: Give your other Militech +${2 * g}/+${2 * g} for each Arsenal.`,
-  soc: (cs, m, side) => { const n = 2 * arsenalOf(cs.sides[side].p) * gm(m); cs.allies(side).forEach(x => x !== m && x.tribe === 'MIL' && cs.buff(x, n, n)); } });
-C('mil_behemoth', 'Militech Behemoth', 6, 'MIL', 7, 9, { hum: 8, text: g => `Humanity 8. Cyberware installed on this applies ${g > 1 ? 'three times' : 'twice'}.` });
-C('mil_chimera', 'Chimera', 6, 'MIL', 7, 7, { text: g => `Start of Combat: Each friendly Militech gains the effect of ${g > 1 ? 'three random Cyberware' : 'a random Cyberware'} (this combat only).`,
-  soc: (cs, m, side) => cs.allies(side).forEach(x => { if (x.tribe === 'MIL') for (let i = 0; i < gm(m); i++) cs.tempWare(x, randomWareId(cs.sides[side].p)); }) });
-C('mil_av', 'Militech AV', 6, 'MIL', 8, 8, { text: g => `After you install Cyberware, install a copy of it on ${g > 1 ? 'three other random Militech' : 'another random Militech'}.`,
-  onInstall: (p, m, t, w) => { if (p._avBusy) return; p._avBusy = true; try { shuffle(boardOf(p, 'MIL').filter(x => x !== t)).slice(0, gm(m)).forEach(x => installWare(p, x, w.id)); } finally { p._avBusy = false; } } });
+C('mil_reaper', 'Reaper Squad', 5, 'MIL', 5, 5, { text: g => `Start of Combat: Give your other Militech +${g}/+${g} for every 2 Arsenal.`,
+  soc: (cs, m, side) => { const n = Math.floor(arsenalOf(cs.sides[side].p) / 2) * gm(m); cs.allies(side).forEach(x => x !== m && isTr(x, 'MIL') && cs.buff(x, n, n)); } });
+C('mil_behemoth', 'Militech Behemoth', 6, 'MIL', 7, 9, { hum: 8, text: g => `Humanity 8. Cyberware installed on this applies ${g.c > 1 ? 'three times' : 'twice'}.` });
+C('mil_chimera', 'Chimera', 6, 'MIL', 7, 7, { text: g => `Start of Combat: Each friendly Militech gains the effect of ${g.c > 1 ? 'three random Cyberware' : 'a random Cyberware'} (this combat only).`,
+  soc: (cs, m, side) => cs.allies(side).forEach(x => { if (isTr(x, 'MIL')) for (let i = 0; i < gc(m); i++) cs.tempWare(x, randomWareId(cs.sides[side].p)); }) });
+C('mil_av', 'Militech AV', 6, 'MIL', 8, 8, { text: g => `After you install Cyberware, install a copy of it on ${g.c > 1 ? 'three other random Militech' : 'another random Militech'}.`,
+  onInstall: (p, m, t, w) => { if (p._avBusy) return; p._avBusy = true; try { shuffle(boardOf(p, 'MIL').filter(x => x !== t)).slice(0, gc(m)).forEach(x => installWare(p, x, w.id)); } finally { p._avBusy = false; } } });
 
 // ---- MAELSTROM: Chrome madness. Cyberpsychos hit twice as hard but Max-Tac hunts them. Humanity 1 ----
-C('mae_ganger', 'Maelstrom Ganger', 1, 'MAE', 4, 3, { text: g => `Jack In: Install ${g > 1 ? 'three random Tier 1 Cyberware' : 'a random Tier 1 Cyberware'} on this.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) installWare(p, m, randomWareId(p, 1)); } });
+C('mae_ganger', 'Maelstrom Ganger', 1, 'MAE', 4, 3, { text: g => `Jack In: Install ${g.c > 1 ? 'three random Tier 1 Cyberware' : 'a random Tier 1 Cyberware'} on this.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) installWare(p, m, randomWareId(p, 1)); } });
 C('mae_junkie', 'Chrome Junkie', 1, 'MAE', 2, 4, { text: g => `After a friendly minion becomes a Cyberpsycho, gain +${5 * g}/+${5 * g}.`,
   onPsycho: (p, m) => buff(m, 5 * gm(m), 5 * gm(m)) });
-C('mae_scrap', 'Scrap Hound', 1, 'MAE', 3, 2, { text: g => `Whenever another friendly Cyberpsycho dies, gain ${g > 1 ? 'all' : 'a third'} of its Attack and Health permanently.`,
-  onFriendlyDeathC: (cs, m, side, d) => { if (!d.psycho) return; const k = m.golden ? 1 : 1 / 3; cs.perm(m, Math.ceil((d.ma || d.atk) * k), Math.ceil((d.mx || 1) * k)); } });
+C('mae_scrap', 'Scrap Hound', 1, 'MAE', 3, 2, { text: g => `Whenever another friendly Cyberpsycho dies, scavenge its chrome: gain +${2 * g}/+${2 * g} permanently.`,
+  onFriendlyDeathC: (cs, m, side, d) => { if (d.psycho && d !== m) cs.perm(m, 2 * gm(m), 2 * gm(m)); } });
 C('mae_glitch', 'Glitch Rider', 2, 'MAE', 3, 4, { text: g => `Your Cyberpsychos hit your own minions half as often. Start of Combat: Your Cyberpsychos gain +${2 * g}/+${2 * g}.`,
   soc: (cs, m, side) => cs.allies(side).forEach(x => x.psycho && cs.buff(x, 2 * gm(m), 2 * gm(m))) });
 C('mae_redeyes', 'Red Eyes', 2, 'MAE', 4, 5, { text: g => `After this attacks as a Cyberpsycho, gain +${5 * g}/+${5 * g} permanently.`,
@@ -241,8 +261,8 @@ C('mae_feeder', 'Bloodfeeder', 3, 'MAE', 3, 3, { text: g => `After a friendly Cy
 C('mae_brick', 'Brick', 4, 'MAE', 5, 6, { kw: ['taunt'], text: g => `Start of Combat: Give your Cyberpsychos +${7 * g}/+${7 * g}.`,
   soc: (cs, m, side) => cs.allies(side).forEach(x => x.psycho && cs.buff(x, 7 * gm(m), 7 * gm(m))) });
 C('mae_splicer', 'Maelstrom Splicer', 4, 'MAE', 5, 6, { text: g => `After you install Cyberware on a Maelstrom, give your Maelstrom +${2 * g}/+${g}.`,
-  onInstall: (p, m, t) => { if (t.tribe === 'MAE') boardOf(p, 'MAE').forEach(x => buff(x, 2 * gm(m), gm(m))); } });
-C('mae_heatsink', 'Heat Sink', 4, 'MAE', 3, 6, { kw: ['taunt'], text: g => `Max-Tac hunts your Cyberpsychos ${g > 1 ? 'four' : 'two'} times slower.` });
+  onInstall: (p, m, t) => { if (isTr(t, 'MAE')) boardOf(p, 'MAE').forEach(x => buff(x, 2 * gm(m), gm(m))); } });
+C('mae_heatsink', 'Heat Sink', 4, 'MAE', 3, 6, { kw: ['taunt'], text: g => `Max-Tac hunts your Cyberpsychos ${g.c > 1 ? 'four' : 'two'} times slower.` });
 C('mae_dumdum', 'Dum Dum', 5, 'MAE', 7, 8, { target: 'friendly', text: g => `Jack In: Give a friendly minion +${4 * g}/+${4 * g} and make it a Cyberpsycho.`,
   bc: (p, m, t) => { if (!t) return; const w = isPsycho(t, p); buff(t, 4 * gm(m), 4 * gm(m)); while (!isPsycho(t, p)) t.humMod = (t.humMod || 0) - 1; psychoCheck(p, t, w); } });
 C('mae_patricia', 'Patricia', 5, 'MAE', 5, 5, { text: g => `Whenever a friendly Cyberpsycho destroys a minion, give it +${5 * g}/+${5 * g} permanently.`,
@@ -256,37 +276,37 @@ C('mae_overdrive', 'Overdrive', 6, 'MAE', 6, 6, { text: g => `End of Turn: Give 
 // ---- TYGER CLAWS: Honor. Every enemy a Tyger Claws destroys earns Honor; their blades scale with it. ----
 C('tyg_prospect', 'Tyger Prospect', 1, 'TYG', 2, 1, { kw: ['first'], text: g => `After this destroys a minion, gain +${2 * g}/+${2 * g} permanently.`,
   onKillC: (cs, m) => cs.perm(m, 2 * gm(m), 2 * gm(m)) });
-C('tyg_scooter', 'Scooter Punk', 1, 'TYG', 1, 2, { target: 'TYG', text: g => `Jack In: Give a friendly Tyger Claws Kerenzikov${g > 1 ? ' and +3/+3' : ''}.`,
+C('tyg_scooter', 'Scooter Punk', 1, 'TYG', 1, 2, { target: 'TYG', text: g => `Jack In: Give a friendly Tyger Claws Kerenzikov${g.c > 1 ? ' and +3/+3' : ''}.`,
   bc: (p, m, t) => { if (t) { t.first = true; if (m.golden) buff(t, 3, 3); } } });
 C('tyg_initiate', 'Claw Initiate', 1, 'TYG', 2, 2, { text: g => `Start of Combat: Gain +${g} Attack for every 3 Honor.`,
   soc: (cs, m, side) => cs.buff(m, Math.floor((cs.sides[side].p.honor || 0) / 3) * gm(m), 0) });
 C('tyg_adept', 'Katana Adept', 2, 'TYG', 2, 2, { kw: ['venom'], text: g => `After this attacks, give a random friendly Tyger Claws +${g}/+${g}.`,
-  afterAttackC: (cs, m, side) => { const t = randOf(cs.allies(side).filter(x => x.tribe === 'TYG' && x !== m)); if (t) cs.buff(t, gm(m), gm(m)); } });
+  afterAttackC: (cs, m, side) => { const t = randOf(cs.allies(side).filter(x => isTr(x, 'TYG') && x !== m)); if (t) cs.buff(t, gm(m), gm(m)); } });
 C('tyg_saint', 'Sword Saint', 2, 'TYG', 3, 2, { kw: ['first'], text: g => `Before this attacks a minion with higher Attack, gain +${2 * g}/+${2 * g} permanently.`,
   beforeAttackC: (cs, m, side, t) => { if (t.atk > m.atk) cs.perm(m, 2 * gm(m), 2 * gm(m)); } });
 C('tyg_trainee', 'Sword Trainee', 2, 'TYG', 2, 3, { text: g => `Jack In: Gain +${g}/+${g} for every 2 Honor.`,
   bc: (p, m) => { const n = Math.floor((p.honor || 0) / 2) * gm(m); buff(m, n, n); } });
-C('tyg_jotaro', 'Jotaro Shobo', 3, 'TYG', 3, 3, { target: 'TYG', text: g => `Jack In: Give a friendly Tyger Claws Neurotoxin${g > 1 ? ' and +3/+3' : ''}.`,
+C('tyg_jotaro', 'Jotaro Shobo', 3, 'TYG', 3, 3, { target: 'TYG', text: g => `Jack In: Give a friendly Tyger Claws Neurotoxin${g.c > 1 ? ' and +3/+3' : ''}.`,
   bc: (p, m, t) => { if (t) { t.venom = true; if (m.golden) buff(t, 3, 3); } } });
 C('tyg_master', 'Blade Master', 3, 'TYG', 3, 4, { text: g => `Start of Combat: Give your minions with Kerenzikov +${2 * g} Attack.`,
   soc: (cs, m, side) => cs.allies(side).forEach(x => x.first && cs.buff(x, 2 * gm(m), 0)) });
 C('tyg_dojo', 'Dojo Sensei', 3, 'TYG', 2, 5, { text: g => `End of Turn: Give your Tyger Claws +${g}/+${g} for every 5 Honor.`,
   eot: (p, m) => { const n = Math.floor((p.honor || 0) / 5) * gm(m); if (n) boardOf(p, 'TYG').forEach(x => buff(x, n, n)); } });
-C('tyg_mantis', 'Mantis Assassin', 4, 'TYG', 4, 4, { kw: ['first'], text: g => `After this destroys a minion, it attacks again${g > 1 ? ' with +2 Attack' : ''} (once per turn).`,
+C('tyg_mantis', 'Mantis Assassin', 4, 'TYG', 4, 4, { kw: ['first'], text: g => `After this destroys a minion, it attacks again${g.c > 1 ? ' with +2 Attack' : ''} (once per turn).`,
   onKillC: (cs, m, side) => { if (!m._again) { m._again = true; if (m.golden) cs.buff(m, 2, 0); cs.extraAttack(m, side); } } });
 C('tyg_enforcer', 'Tyger Enforcer', 4, 'TYG', 3, 5, { text: g => `After you play a Tyger Claws, give it +${2 * g}/+${g}.`,
-  onPlayFriendly: (p, m, x) => x.tribe === 'TYG' && buff(x, 2 * gm(m), gm(m)) });
+  onPlayFriendly: (p, m, x) => isTr(x, 'TYG') && buff(x, 2 * gm(m), gm(m)) });
 C('tyg_ronin', 'Ronin', 4, 'TYG', 4, 3, { kw: ['first'], text: g => `Start of Combat: Gain +${g}/+${g} for each Honor.`,
   soc: (cs, m, side) => { const n = (cs.sides[side].p.honor || 0) * gm(m); cs.buff(m, n, n); } });
-C('tyg_oni', 'Oni Mask Assassin', 5, 'TYG', 5, 6, { text: g => `Start of Combat: Give your Tyger Claws Kerenzikov${g > 1 ? ' and +3/+3' : ''}.`,
-  soc: (cs, m, side) => cs.allies(side).forEach(x => { if (x.tribe === 'TYG') { x.first = true; if (m.golden) cs.buff(x, 3, 3); } }) });
+C('tyg_oni', 'Oni Mask Assassin', 5, 'TYG', 5, 6, { text: g => `Start of Combat: Give your Tyger Claws Kerenzikov${g.c > 1 ? ' and +3/+3' : ''}.`,
+  soc: (cs, m, side) => cs.allies(side).forEach(x => { if (isTr(x, 'TYG')) { x.first = true; if (m.golden) cs.buff(x, 3, 3); } }) });
 C('tyg_wakako', 'Wakako Okada', 5, 'TYG', 3, 6, { text: g => `End of Turn: Give your Tyger Claws +${g}/+${g}.`,
   eot: (p, m) => boardOf(p, 'TYG').forEach(x => buff(x, gm(m), gm(m))) });
 C('tyg_oyabun', 'Oyabun', 5, 'TYG', 5, 5, { text: g => `Whenever a friendly Tyger Claws destroys a minion, give your Tyger Claws +${g}/+${g}.`,
-  onKillFriendlyC: (cs, m, side, killer) => { if (killer.tribe === 'TYG') cs.allies(side).forEach(x => x.tribe === 'TYG' && cs.buff(x, gm(m), gm(m))); } });
-C('tyg_shogun', 'Tyger Shogun', 6, 'TYG', 7, 7, { kw: ['first', 'venom'], text: g => `After this destroys a minion, it regains Neurotoxin${g > 1 ? ' and gains +3/+3' : ''}.`,
+  onKillFriendlyC: (cs, m, side, killer) => { if (isTr(killer, 'TYG')) cs.allies(side).forEach(x => isTr(x, 'TYG') && cs.buff(x, gm(m), gm(m))); } });
+C('tyg_shogun', 'Tyger Shogun', 6, 'TYG', 7, 7, { kw: ['first', 'venom'], text: g => `After this destroys a minion, it regains Neurotoxin${g.c > 1 ? ' and gains +3/+3' : ''}.`,
   onKillC: (cs, m) => { m.venom = true; if (m.golden) cs.buff(m, 3, 3); } });
-C('tyg_wraith', 'Blade Wraith', 6, 'TYG', 6, 6, { kw: ['first', 'stealth'], text: g => `Your Tyger Claws earn ${g > 1 ? 'triple' : 'double'} Honor.` });
+C('tyg_wraith', 'Blade Wraith', 6, 'TYG', 6, 6, { kw: ['first', 'stealth'], text: g => `Your Tyger Claws earn ${g.c > 1 ? 'triple' : 'double'} Honor.` });
 
 // ---- ALDECALDOS: Convoy. End of Turn buffs flow along the line; the Captain makes them fire again. ----
 C('ald_mechanic', 'Nomad Mechanic', 1, 'ALD', 1, 3, { text: g => `End of Turn: Give the minion to the right of this +${2 * g}/+${2 * g}.`,
@@ -305,81 +325,84 @@ C('ald_saul', 'Saul Bright', 3, 'ALD', 3, 4, { text: g => `End of Turn: Give the
   eot: (p, m) => adjacent(p.board, m).forEach(x => buff(x, 2 * gm(m), 2 * gm(m))) });
 C('ald_sharp', 'Nomad Sharpshooter', 3, 'ALD', 4, 2, { text: g => `Start of Combat: Deal ${2 * g} damage to a random enemy minion for each Aldecaldo next to this.`,
   soc: (cs, m, side) => { const n = cs.adj(m, side).filter(isT('ALD')).length; for (let i = 0; i < n; i++) { const t = randOf(cs.allies(1 - side)); if (t) cs.damage(t, 2 * gm(m), m); } } });
-C('ald_relay', 'Convoy Relay', 3, 'ALD', 2, 4, { text: g => `End of Turn: Trigger the End of Turn effects of the minions next to this${g > 1 ? ' three times' : ''}.`,
-  eot: (p, m) => { for (let k = 0; k < gm(m); k++) adjacent(p.board, m).forEach(x => { const c = CARDS[x.id]; if (c.eot && x.id !== 'ald_relay') c.eot(p, x); }); } });
-C('ald_tank', 'Basilisk Tank', 4, 'ALD', 5, 6, { kw: ['taunt'], text: g => `Flatline: Give the minions next to this Barrier${g > 1 ? ' and +3/+3' : ''}.`,
+C('ald_relay', 'Convoy Relay', 3, 'ALD', 2, 4, { text: g => `End of Turn: Trigger the End of Turn effects of the minions next to this${g.c > 1 ? ' three times' : ''}.`,
+  eot: (p, m) => { for (let k = 0; k < gc(m); k++) adjacent(p.board, m).forEach(x => { const c = CARDS[x.id]; if (c.eot && x.id !== 'ald_relay') c.eot(p, x); }); } });
+C('ald_tank', 'Basilisk Tank', 4, 'ALD', 5, 6, { kw: ['taunt'], text: g => `Flatline: Give the minions next to this Barrier${g.c > 1 ? ' and +3/+3' : ''}.`,
   dr: (cs, m, side, pos) => { const b = cs.sides[side].b; [b[pos - 1], b[pos]].forEach(x => { if (x && !x.dead) { x.shield = true; if (m.golden) cs.buff(x, 3, 3); } }); } });
 C('ald_mitch', 'Mitch Anderson', 4, 'ALD', 4, 5, { text: g => `After a minion next to this attacks, give it +${2 * g}/+${2 * g}.`,
   onFriendlyAttackC: (cs, m, side, a) => { if (cs.adj(m, side).includes(a) && a.hp > 0) cs.buff(a, 2 * gm(m), 2 * gm(m)); } });
-C('ald_rig', 'Big Rig', 4, 'ALD', 3, 8, { kw: ['taunt'], text: g => `Start of Combat: Give the minions next to this ${g > 1 ? 'triple ' : ''}this minion's Health.`,
-  soc: (cs, m, side) => cs.adj(m, side).forEach(x => cs.buff(x, 0, m.hp * gm(m))) });
+C('ald_rig', 'Big Rig', 4, 'ALD', 3, 8, { kw: ['taunt'], text: g => `Start of Combat: Give the minions next to this ${g.c > 1 ? 'triple ' : ''}this minion's Health.`,
+  soc: (cs, m, side) => cs.adj(m, side).forEach(x => cs.buff(x, 0, m.hp * gc(m))) });
 C('ald_carol', 'Carol Emeka', 5, 'ALD', 5, 5, { text: g => `End of Turn: Give your Aldecaldos +${3 * g}/+${3 * g}.`,
   eot: (p, m) => boardOf(p, 'ALD').forEach(x => buff(x, 3 * gm(m), 3 * gm(m))) });
-C('ald_captain', 'Convoy Captain', 5, 'ALD', 5, 6, { text: g => `Your other Aldecaldos' End of Turn effects trigger ${g > 1 ? 'three times' : 'twice'}.` });
+C('ald_captain', 'Convoy Captain', 5, 'ALD', 5, 6, { text: g => `Your other Aldecaldos' End of Turn effects trigger ${g.c > 1 ? 'three times' : 'twice'}.` });
 C('ald_hauler', 'Convoy Hauler', 6, 'ALD', 6, 8, { kw: ['taunt'], text: g => `Start of Combat: Give the minions next to this +${5 * g}/+${5 * g} and Bodyguard.`,
   soc: (cs, m, side) => cs.adj(m, side).forEach(x => { cs.buff(x, 5 * gm(m), 5 * gm(m)); x.taunt = true; }) });
 C('ald_roadking', 'Road King', 6, 'ALD', 7, 7, { text: g => `End of Turn: Give your Aldecaldos +${g}/+${g} for each Aldecaldo you control.`,
   eot: (p, m) => { const a = boardOf(p, 'ALD'); const n = a.length * gm(m); a.forEach(x => buff(x, n, n)); } });
 
-// ---- ARASAKA: Engram. Uploads build a permanent bonus that every Arasaka you control has. ----
+// ---- ARASAKA: Soulkiller. Dead Arasaka minds go to the Engram vault; cards re-embody or implant them. ----
 C('ara_guard', 'Arasaka Guard', 1, 'ARA', 2, 3, { kw: ['taunt'], text: 'Start of Combat: If an Arasaka is next to this, gain Barrier.',
   soc: (cs, m, side) => { if (cs.adj(m, side).some(isT('ARA'))) m.shield = true; } });
-C('ara_courier', 'Engram Courier', 3, 'ARA', 2, 2, { text: g => `Flatline: Upload +${g}/+${g} to your Engram.`,
-  dr: (cs, m, side) => cs.engram(side, gm(m), gm(m)) });
+C('ara_courier', 'Engram Courier', 3, 'ARA', 2, 2, { text: g => `Flatline: Re-embody the newest Engram from your vault in its place${g.c > 1 ? ' (three times)' : ''}.`,
+  dr: (cs, m, side, pos) => { if (m.construct) return; const v = (cs.sides[side].p.vault || []).filter(e => e.id !== 'ara_courier'); for (let i = 0; i < gc(m); i++) cs.embody(side, v[v.length - 1 - i], pos); } });
 C('ara_sniper', 'Arasaka Sniper', 2, 'ARA', 3, 2, { text: g => `Start of Combat: Deal ${2 * g} damage to the enemy minion with the lowest Health.`,
   soc: (cs, m, side) => { const e = cs.allies(1 - side); if (e.length) cs.damage(e.reduce((a, b) => b.hp < a.hp ? b : a), 2 * gm(m), m); } });
-C('ara_tech', 'Soulkiller Tech', 1, 'ARA', 1, 2, { text: g => `Flatline: Upload +${g}/+0 to your Engram.`, dr: (cs, m, side) => cs.engram(side, gm(m), 0) });
-C('ara_drone', 'Security Drone', 2, 'ARA', 2, 2, { text: g => `Jack In: Upload +${g}/+0 for every 2 other Arasaka you control.`,
-  bc: (p, m) => addEngram(p, Math.floor((boardOf(p, 'ARA').length - 1) / 2) * gm(m), 0) });
+C('ara_tech', 'Soulkiller Tech', 1, 'ARA', 1, 2, { text: g => `Start of Combat: Secure the soul of the enemy minion with the highest Attack: copy its mind into your Engram vault${g.c > 1 ? ' (and the next two)' : ''}.`,
+  soc: (cs, m, side) => cs.allies(1 - side).slice().sort((a, b) => b.atk - a.atk).slice(0, gc(m)).forEach(t => cs.upload(side, t)) });
+C('ara_drone', 'Security Drone', 2, 'ARA', 2, 2, { text: g => `Jack In: Copy the mind of ${g.c > 1 ? 'three random friendly minions' : 'a random friendly minion'} into your Engram vault.`,
+  bc: (p, m) => shuffle(p.board.filter(x => x !== m)).slice(0, gc(m)).forEach(x => upload(p, x)) });
 C('ara_oda', 'Sandayu Oda', 3, 'ARA', 3, 4, { text: g => `Start of Combat: Give another random Arasaka Barrier and +${2 * g} Attack.`,
-  soc: (cs, m, side) => { const t = randOf(cs.allies(side).filter(x => x !== m && x.tribe === 'ARA')); if (t) { t.shield = true; cs.buff(t, 2 * gm(m), 0); } } });
-C('ara_researcher', 'Relic Researcher', 3, 'ARA', 2, 4, { text: g => `After you play an Arasaka, upload +${g}/+${g} to your Engram.`,
-  onPlayFriendly: (p, m, x) => { if (x.tribe === 'ARA') addEngram(p, gm(m), gm(m)); } });
-C('ara_sync', 'Data Synchronizer', 3, 'ARA', 3, 3, { text: g => `End of Turn: Upload +${g}/+0 to your Engram.`, eot: (p, m) => addEngram(p, gm(m), 0) });
+  soc: (cs, m, side) => { const t = randOf(cs.allies(side).filter(x => x !== m && isTr(x, 'ARA'))); if (t) { t.shield = true; cs.buff(t, 2 * gm(m), 0); } } });
+C('ara_researcher', 'Relic Researcher', 3, 'ARA', 2, 4, { text: g => `After you play an Arasaka, copy its mind into your Engram vault${g.c > 1 ? ' three times' : ''}.`,
+  onPlayFriendly: (p, m, x) => { if (isTr(x, 'ARA')) for (let i = 0; i < gc(m); i++) upload(p, x); } });
+C('ara_sync', 'Data Synchronizer', 3, 'ARA', 3, 3, { text: g => `End of Turn: Your newest Engram trains on this turn's data: it gains +${2 * g}/+${2 * g}.`,
+  eot: (p, m) => { const e = (p.vault || [])[(p.vault || []).length - 1]; if (e) { e.atk += 2 * gm(m); e.hp += 2 * gm(m); } } });
 C('ara_ninja', 'Arasaka Ninja', 4, 'ARA', 4, 4, { kw: ['stealth'], text: g => `Start of Combat: Deal ${4 * g} damage to the enemy minion with the highest Attack.`,
   soc: (cs, m, side) => { const e = cs.allies(1 - side); if (e.length) cs.damage(e.reduce((a, b) => b.atk > a.atk ? b : a), 4 * gm(m), m); } });
-C('ara_exec', 'Arasaka Executive', 4, 'ARA', 3, 5, { text: g => `End of Turn: Upload +${g}/+${g} for every 3 Arasaka you control.`,
-  eot: (p, m) => { const n = Math.floor(boardOf(p, 'ARA').length / 3) * gm(m); addEngram(p, n, n); } });
-C('ara_handler', 'Engram Handler', 4, 'ARA', 4, 4, { text: g => `Start of Combat: Your non-Arasaka minions also get ${g > 1 ? 'triple ' : ''}your Engram bonus.`,
-  soc: (cs, m, side) => { const p = cs.sides[side].p; const k = engMult(cs.allies(side)); const e = p.engram || { a: 0, h: 0 }; cs.allies(side).forEach(x => x.tribe !== 'ARA' && cs.buff(x, e.a * k * gm(m), e.h * k * gm(m))); } });
+C('ara_exec', 'Arasaka Executive', 4, 'ARA', 3, 5, { text: g => `End of Turn: Copy the mind of your strongest minion into your Engram vault${g.c > 1 ? ' three times' : ''}.`,
+  eot: (p, m) => { const t = strongest(p.board); if (t) for (let i = 0; i < gc(m); i++) upload(p, t); } });
+C('ara_handler', 'Engram Handler', 4, 'ARA', 4, 4, { target: 'friendly', text: g => `Jack In: Implant your strongest Engram into a friendly minion: it gains that mind's Attack and Health${g.c > 1 ? ' three times' : ''} and its abilities. The Engram leaves your vault.`,
+  bc: (p, m, t) => { if (!t || !(p.vault || []).length) return; const e = strongest(p.vault); p.vault.splice(p.vault.indexOf(e), 1); buff(t, e.atk * gc(m), e.hp * gc(m)); if (e.id !== t.id) t.relic = e.id; emit('upload', { p, m: t }); } });
 C('ara_warden', 'Arasaka Warden', 5, 'ARA', 6, 6, { text: g => `Start of Combat: Give your other Arasaka +${3 * g}/+${3 * g}.`,
-  soc: (cs, m, side) => cs.allies(side).forEach(x => x !== m && x.tribe === 'ARA' && cs.buff(x, 3 * gm(m), 3 * gm(m))) });
-C('ara_backup', 'Backup Server', 5, 'ARA', 3, 7, { text: g => `Whenever another friendly Arasaka dies, upload +${g}/+${g} to your Engram.`,
-  onFriendlyDeathC: (cs, m, side, d) => { if (d.tribe === 'ARA') cs.engram(side, gm(m), gm(m)); } });
-C('ara_mikoshi', 'Mikoshi', 6, 'ARA', 6, 6, { text: g => `Your Engram bonus is ${g > 1 ? 'tripled' : 'doubled'}.` });
-C('ara_tower', 'Arasaka Tower', 6, 'ARA', 10, 10, { text: g => `End of Turn: Increase your Engram by ${10 * g}%.`,
-  eot: (p, m) => { const k = .1 * gm(m); p.engram.a += Math.max(1, Math.ceil(p.engram.a * k)); p.engram.h += Math.max(1, Math.ceil(p.engram.h * k)); } });
+  soc: (cs, m, side) => cs.allies(side).forEach(x => x !== m && isTr(x, 'ARA') && cs.buff(x, 3 * gm(m), 3 * gm(m))) });
+C('ara_backup', 'Backup Server', 5, 'ARA', 3, 7, { text: g => `Whenever another friendly minion dies, copy its mind into your Engram vault${g.c > 1 ? ' three times' : ''}.`,
+  onFriendlyDeathC: (cs, m, side, d) => { if (!d.construct) for (let i = 0; i < gc(m); i++) cs.upload(side, d); } });
+C('ara_mikoshi', 'Mikoshi', 6, 'ARA', 6, 6, { text: g => `Start of Combat: Re-embody your ${g.c > 1 ? 'nine' : 'three'} strongest Engrams as constructs that fight for you.`,
+  soc: (cs, m, side) => { const v = (cs.sides[side].p.vault || []).slice().sort((a, b) => (b.atk + b.hp) - (a.atk + a.hp)); v.slice(0, 3 * gc(m)).forEach(e => cs.embody(side, e, cs.sides[side].b.indexOf(m) + 1)); } });
+C('ara_tower', 'Arasaka Tower', 6, 'ARA', 10, 10, { text: g => `End of Turn: Every Engram in your vault gains +${g}/+${g}.`,
+  eot: (p, m) => (p.vault || []).forEach(e => { e.atk += gm(m); e.hp += gm(m); }) });
 
 // ---- VALENTINOS: Familia. Eddies and Loyalty: the longer they stay, the faster they grow. ----
-C('val_lookout', 'Valentinos Lookout', 1, 'VAL', 2, 2, { text: g => `Jack In: Gain ${g} €$.`, bc: (p, m) => { p.gold += gm(m); } });
+C('val_lookout', 'Valentinos Lookout', 1, 'VAL', 2, 2, { text: g => `Jack In: Gain ${g.c} €$.`, bc: (p, m) => { p.gold += gc(m); } });
 C('val_kid', 'Heywood Kid', 1, 'VAL', 1, 1, { text: g => `At the start of your turn, gain +${2 * g}/+${2 * g}.`, sot: (p, m) => buff(m, 2 * gm(m), 2 * gm(m)) });
 C('val_abuela', 'Abuela', 1, 'VAL', 1, 3, { text: g => `End of Turn: Give your minion with the most Loyalty +${3 * g}/+${3 * g}.`,
   eot: (p, m) => { if (p.board.length) { const t = p.board.reduce((a, b) => (b.loy || 0) > (a.loy || 0) ? b : a); buff(t, 3 * gm(m), 3 * gm(m)); } } });
 C('val_lowrider', 'Lowrider', 2, 'VAL', 2, 3, { text: g => `After you buy a minion, gain +${2 * g}/+${2 * g}.`, onBuyFriendly: (p, m) => buff(m, 2 * gm(m), 2 * gm(m)) });
 C('val_familia', 'Familia Saint', 2, 'VAL', 2, 2, { text: g => `Jack In: Gain +${g}/+${g} for each turn your most Loyal minion has been on your board (up to 6).`,
   bc: (p, m) => { const n = Math.min(6, Math.max(0, ...p.board.map(x => x.loy || 0))); buff(m, n * gm(m), n * gm(m)); } });
-C('val_bank', 'Street Banker', 2, 'VAL', 2, 3, { text: g => `End of Turn: Save up to ${2 * g} unspent €$ for next turn.`,
-  eot: (p, m) => { p.nextGold += Math.min(p.gold, 2 * gm(m)); } });
-C('val_padre', 'Padre', 3, 'VAL', 3, 4, { text: g => `At the start of your turn, gain ${g} €$.`, sot: (p, m) => { p.gold += gm(m); } });
+C('val_bank', 'Street Banker', 2, 'VAL', 2, 3, { text: g => `End of Turn: Save up to ${2 * g.c} unspent €$ for next turn.`,
+  eot: (p, m) => { p.nextGold += Math.min(p.gold, 2 * gc(m)); } });
+C('val_padre', 'Padre', 3, 'VAL', 3, 4, { text: g => `At the start of your turn, gain ${g.c} €$.`, sot: (p, m) => { p.gold += gc(m); } });
 C('val_collector', 'Debt Collector', 3, 'VAL', 3, 3, { text: g => `After you sell a minion, gain +${3 * g}/+${3 * g}.`, onSellFriendly: (p, m) => buff(m, 3 * gm(m), 3 * gm(m)) });
 C('val_padrino', 'El Padrino', 3, 'VAL', 3, 4, { text: g => `At the start of your turn, give each Valentinos +${g}/+${g} for every 2 Loyalty it has.`,
   sot: (p, m) => boardOf(p, 'VAL').forEach(x => { const n = Math.floor((x.loy || 0) / 2) * gm(m); if (n) buff(x, n, n); }) });
-C('val_capitan', 'El Capitán', 4, 'VAL', 4, 5, { text: g => `Jack In: Gain 1 €$ for each other Valentinos you control (up to ${3 * g}).`,
-  bc: (p, m) => { p.gold += Math.min(3 * gm(m), boardOf(p, 'VAL').filter(x => x !== m).length); } });
+C('val_capitan', 'El Capitán', 4, 'VAL', 4, 5, { text: g => `Jack In: Gain 1 €$ for each other Valentinos you control (up to ${3 * g.c}).`,
+  bc: (p, m) => { p.gold += Math.min(3 * gc(m), boardOf(p, 'VAL').filter(x => x !== m).length); } });
 C('val_chain', 'Gold Chain Dealer', 4, 'VAL', 3, 4, { text: g => `Start of Combat: Give your minions with 3+ Loyalty +${2 * g}/+${2 * g}.`,
   soc: (cs, m, side) => cs.allies(side).forEach(x => (x.loy || 0) >= 3 && cs.buff(x, 2 * gm(m), 2 * gm(m))) });
-C('val_chapel', 'Chapel Guardian', 4, 'VAL', 3, 6, { kw: ['taunt'], text: g => `Your minions gain Loyalty ${g > 1 ? 'three times' : 'twice'} as fast.` });
+C('val_chapel', 'Chapel Guardian', 4, 'VAL', 3, 6, { kw: ['taunt'], text: g => `Your minions gain Loyalty ${g.c > 1 ? 'three times' : 'twice'} as fast.` });
 C('val_jefe', 'Valentinos Jefe', 5, 'VAL', 5, 5, { text: g => `After you buy a Valentinos, give your Valentinos +${3 * g}/+${3 * g}.`,
-  onBuyFriendly: (p, m, b) => { if (b.tribe === 'VAL') boardOf(p, 'VAL').forEach(x => buff(x, 3 * gm(m), 3 * gm(m))); } });
+  onBuyFriendly: (p, m, b) => { if (isTr(b, 'VAL')) boardOf(p, 'VAL').forEach(x => buff(x, 3 * gm(m), 3 * gm(m))); } });
 C('val_mama', 'Mama Welles', 5, 'VAL', 4, 6, { text: g => `End of Turn: Give your Valentinos +${g}/+${g} for every 2 €$ you spent this turn.`,
   eot: (p, m) => { const n = Math.floor((p.spent || 0) / 2) * gm(m); if (n) boardOf(p, 'VAL').forEach(x => buff(x, n, n)); } });
 C('val_patron', 'Patron Saint', 6, 'VAL', 6, 6, { text: g => `End of Turn: Give your Valentinos +${g}/+${g} for each unspent €$.`,
   eot: (p, m) => { const n = p.gold; if (n > 0) boardOf(p, 'VAL').forEach(x => buff(x, n * gm(m), n * gm(m))); } });
-C('val_virgen', 'La Virgen', 6, 'VAL', 6, 7, { text: g => `Start of Combat: Double the stats of your ${g > 1 ? 'three minions' : 'minion'} with the most Loyalty.`,
-  soc: (cs, m, side) => cs.allies(side).slice().sort((a, b) => (b.loy || 0) - (a.loy || 0)).slice(0, gm(m)).forEach(x => cs.buff(x, x.atk, x.hp)) });
+C('val_virgen', 'La Virgen', 6, 'VAL', 6, 7, { text: g => `Start of Combat: Double the stats of your ${g.c > 1 ? 'three minions' : 'minion'} with the most Loyalty.`,
+  soc: (cs, m, side) => cs.allies(side).slice().sort((a, b) => (b.loy || 0) - (a.loy || 0)).slice(0, gc(m)).forEach(x => cs.buff(x, x.atk, x.hp)) });
 
 // ---- VOODOO BOYS: Netrunning. RAM, Quickhacks and daemons; hoard RAM or burn it. Humanity 2 ----
-C('vdb_kiddie', 'Script Kiddie', 1, 'VDB', 2, 2, { text: g => `Jack In: Gain ${2 * g} RAM and get a random Tier 1 Quickhack.`, bc: (p, m) => { p.ram += 2 * gm(m); giveSpell(p, pick(SPELL_LIST.filter(x => x.tier === 1)).id); } });
+C('vdb_kiddie', 'Script Kiddie', 1, 'VDB', 2, 2, { text: g => `Jack In: Gain ${2 * g.c} RAM and get a random Tier 1 Quickhack.`, bc: (p, m) => { p.ram += 2 * gc(m); giveSpell(p, pick(SPELL_LIST.filter(x => x.tier === 1)).id); } });
 C('vdb_apprentice', 'Netrunner Apprentice', 1, 'VDB', 1, 1, { text: g => `After you cast a Quickhack, gain +${2 * g}/+${2 * g}.`, onSpell: (p, m) => buff(m, 2 * gm(m), 2 * gm(m)) });
 C('vdb_coder', 'Daemon Coder', 1, 'VDB', 2, 2, { text: g => `End of Turn: Gain +${g}/+${g} for each unspent RAM.`,
   eot: (p, m) => { const n = p.ram * gm(m); buff(m, n, n); } });
@@ -387,12 +410,12 @@ C('vdb_netrunner', 'Voodoo Netrunner', 2, 'VDB', 3, 4, { text: g => `You have +$
 C('vdb_ping', 'Ping Daemon', 2, 'VDB', 2, 2, { text: g => `Start of Combat: Give a random enemy minion -${3 * g} Attack.`,
   soc: (cs, m, side) => { const t = randOf(cs.allies(1 - side)); if (t) cs.buff(t, -3 * gm(m), 0); } });
 C('vdb_tracer', 'Tracer', 2, 'VDB', 2, 3, { text: g => `Start of Combat: Give your Voodoo Boys +${g}/+${g} for each Quickhack you've cast this game.`,
-  soc: (cs, m, side) => { const n = (cs.sides[side].p.hacksCast || 0) * gm(m); if (n) cs.allies(side).forEach(x => x.tribe === 'VDB' && cs.buff(x, n, n)); } });
-C('vdb_hacker', 'Voodoo Hacker', 3, 'VDB', 3, 3, { text: g => `Jack In: Get ${g > 1 ? 'three random Quickhacks' : 'a random Quickhack'}.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) giveSpell(p, randomSpellId(p)); } });
+  soc: (cs, m, side) => { const n = (cs.sides[side].p.hacksCast || 0) * gm(m); if (n) cs.allies(side).forEach(x => isTr(x, 'VDB') && cs.buff(x, n, n)); } });
+C('vdb_hacker', 'Voodoo Hacker', 3, 'VDB', 3, 3, { text: g => `Jack In: Get ${g.c > 1 ? 'three random Quickhacks' : 'a random Quickhack'}.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) giveSpell(p, randomSpellId(p)); } });
 C('vdb_breach', 'Breach Runner', 3, 'VDB', 3, 2, { text: g => `After you cast a Quickhack, give your Voodoo Boys +${2 * g}/+${2 * g}.`, onSpell: (p, m) => boardOf(p, 'VDB').forEach(x => buff(x, 2 * gm(m), 2 * gm(m))) });
-C('vdb_cache', 'RAM Cache', 3, 'VDB', 2, 5, { text: g => `End of Turn: Store up to ${8 * g} unspent RAM. Next turn you get it on top of your maximum.`,
-  eot: (p, m) => { p.ramCarry = Math.max(p.ramCarry || 0, Math.min(p.ram, 8 * gm(m))); } });
+C('vdb_cache', 'RAM Cache', 3, 'VDB', 2, 5, { text: g => `End of Turn: Store up to ${8 * g.c} unspent RAM. Next turn you get it on top of your maximum.`,
+  eot: (p, m) => { p.ramCarry = Math.max(p.ramCarry || 0, Math.min(p.ram, 8 * gc(m))); } });
 C('vdb_spider', 'Spider Murphy', 4, 'VDB', 4, 4, { text: g => `Your Quickhacks cost (${g}) less RAM.` });
 C('vdb_shortc', 'Short Circuit Daemon', 4, 'VDB', 3, 5, { text: g => `Start of Combat: Deal ${3 * g} damage to each enemy minion that has Cyberware.`,
   soc: (cs, m, side) => cs.allies(1 - side).forEach(t => t.ware && t.ware.length && cs.damage(t, 3 * gm(m), m)) });
@@ -402,10 +425,10 @@ C('vdb_oldnet', 'Old Net Daemon', 5, 'VDB', 5, 5, { text: g => `After you cast a
   onSpell: (p, m) => { p.tavBuff.a += gm(m); p.tavBuff.h += gm(m); buffShop(p, gm(m), gm(m)); } });
 C('vdb_ghost', 'Net Ghost', 5, 'VDB', 4, 5, { text: g => `Start of Combat: Deal ${g} damage to all enemy minions for every 5 Quickhacks you've cast this game.`,
   soc: (cs, m, side) => { const n = Math.floor((cs.sides[side].p.hacksCast || 0) / 5) * gm(m); if (n) cs.allies(1 - side).forEach(t => cs.damage(t, n, m)); } });
-C('vdb_madness', 'Madness Daemon', 5, 'VDB', 4, 6, { text: g => `Start of Combat: ${g > 1 ? 'The three enemy minions' : 'The enemy minion'} with the highest Attack ${g > 1 ? 'go' : 'goes'} Cyberpsycho: double Attack, and ${g > 1 ? 'they attack' : 'it attacks'} only ${g > 1 ? 'their' : 'its'} own allies.`,
-  soc: (cs, m, side) => cs.allies(1 - side).filter(x => !x.turncoat).sort((a, b) => b.atk - a.atk).slice(0, gm(m)).forEach(t => turncoat(cs, t)) });
-C('vdb_rache', 'Rache Bartmoss', 6, 'VDB', 6, 7, { text: g => `Your Quickhacks are cast ${g > 1 ? 'three times' : 'twice'}.` });
-C('vdb_blackwall', 'Blackwall Entity', 6, 'VDB', 6, 8, { text: g => `Your maximum RAM is ${g > 1 ? 'tripled' : 'doubled'}.` });
+C('vdb_madness', 'Madness Daemon', 5, 'VDB', 4, 6, { text: g => `Start of Combat: ${g.c > 1 ? 'The three enemy minions' : 'The enemy minion'} with the highest Attack ${g.c > 1 ? 'go' : 'goes'} Cyberpsycho: double Attack, and ${g.c > 1 ? 'they attack' : 'it attacks'} only ${g.c > 1 ? 'their' : 'its'} own allies.`,
+  soc: (cs, m, side) => cs.allies(1 - side).filter(x => !x.turncoat).sort((a, b) => b.atk - a.atk).slice(0, gc(m)).forEach(t => turncoat(cs, t)) });
+C('vdb_rache', 'Rache Bartmoss', 6, 'VDB', 6, 7, { text: g => `Your Quickhacks are cast ${g.c > 1 ? 'three times' : 'twice'}.` });
+C('vdb_blackwall', 'Blackwall Entity', 6, 'VDB', 6, 8, { text: g => `Your maximum RAM is ${g.c > 1 ? 'tripled' : 'doubled'}.` });
 
 // ---- ANIMALS: Juice. Health compounds; big bodies hit with their Health. ----
 C('ani_rookie', 'Juiced Rookie', 1, 'ANI', 3, 3, { kw: ['smash'] });
@@ -416,221 +439,255 @@ C('ani_lifter', 'Lifter', 1, 'ANI', 1, 4, { text: g => `End of Turn: Give a rand
 C('ani_bouncer', 'Animals Bouncer', 2, 'ANI', 3, 3, { kw: ['taunt'], text: g => `Whenever this takes damage, gain +${g} Attack permanently.`, onDamagedC: (cs, m) => cs.perm(m, gm(m), 0) });
 C('ani_junkie', 'HGH Junkie', 2, 'ANI', 2, 2, { target: 'ANI', text: g => `Jack In: Give a friendly Animal +${2 * g}/+${4 * g}.`, bc: (p, m, t) => t && buff(t, 2 * gm(m), 4 * gm(m)) });
 C('ani_spotter', 'Spotter', 2, 'ANI', 2, 4, { kw: ['taunt'], text: g => `After another friendly Animal takes damage and survives, give it +${g}/+${g} permanently.`,
-  onFriendlyDamagedC: (cs, m, side, t) => { if (t.tribe === 'ANI') cs.perm(t, gm(m), gm(m)); } });
+  onFriendlyDamagedC: (cs, m, side, t) => { if (isTr(t, 'ANI')) cs.perm(t, gm(m), gm(m)); } });
 C('ani_pumper', 'Muscle Pumper', 3, 'ANI', 3, 3, { text: g => `End of Turn: Give your Animal with the most Health +${3 * g}/+${3 * g}.`,
   eot: (p, m) => { const a = boardOf(p, 'ANI'); if (a.length) { const t = a.reduce((x, y) => y.hp > x.hp ? y : x); buff(t, 3 * gm(m), 3 * gm(m)); } } });
 C('ani_brawler', 'Pit Brawler', 3, 'ANI', 4, 3, { kw: ['smash'], text: g => `After this destroys a minion, gain +${2 * g}/+${2 * g} permanently.`, onKillC: (cs, m) => cs.perm(m, 2 * gm(m), 2 * gm(m)) });
-C('ani_doc', 'Juice Doc', 3, 'ANI', 3, 3, { target: 'ANI', text: g => `Jack In: ${g > 1 ? 'Quadruple' : 'Double'} a friendly Animal's Health.`,
-  bc: (p, m, t) => { if (t) buff(t, 0, t.hp * gm(m)); } });
-C('ani_enforcer', 'Animals Enforcer', 4, 'ANI', 4, 6, { text: g => `Start of Combat: Your Animals gain Attack equal to ${g > 1 ? 'three quarters' : 'a quarter'} of their Health.`,
-  soc: (cs, m, side) => cs.allies(side).forEach(x => x.tribe === 'ANI' && cs.buff(x, Math.ceil(x.hp * (m.golden ? .75 : .25)), 0)) });
-C('ani_dealer', 'Juice Dealer', 4, 'ANI', 3, 4, { text: g => `After you play an Animal, give it +${g}/+${3 * g}.`, onPlayFriendly: (p, m, x) => x.tribe === 'ANI' && buff(x, gm(m), 3 * gm(m)) });
-C('ani_crusher', 'Bone Crusher', 4, 'ANI', 1, 8, { kw: ['smash'], hpAttack: true, text: g => `Attacks with its Health instead of its Attack.${g > 1 ? ' Start of Combat: Gain +8 Health.' : ''}`,
+C('ani_doc', 'Juice Doc', 3, 'ANI', 3, 3, { target: 'ANI', text: g => `Jack In: ${g.c > 1 ? 'Quadruple' : 'Double'} a friendly Animal's Health.`,
+  bc: (p, m, t) => { if (t) buff(t, 0, t.hp * gc(m)); } });
+C('ani_enforcer', 'Animals Enforcer', 4, 'ANI', 4, 6, { text: g => `Start of Combat: Your Animals gain Attack equal to ${g.c > 1 ? 'three quarters' : 'a quarter'} of their Health.`,
+  soc: (cs, m, side) => cs.allies(side).forEach(x => isTr(x, 'ANI') && cs.buff(x, Math.ceil(x.hp * (m.golden ? .75 : .25)), 0)) });
+C('ani_dealer', 'Juice Dealer', 4, 'ANI', 3, 4, { text: g => `After you play an Animal, give it +${g}/+${3 * g}.`, onPlayFriendly: (p, m, x) => isTr(x, 'ANI') && buff(x, gm(m), 3 * gm(m)) });
+C('ani_crusher', 'Bone Crusher', 4, 'ANI', 1, 8, { kw: ['smash'], hpAttack: true, text: g => `Attacks with its Health instead of its Attack.${g.c > 1 ? ' Start of Combat: Gain +8 Health.' : ''}`,
   soc: (cs, m) => { if (m.golden) cs.buff(m, 0, 8); } });
 C('ani_hulk', 'Animals Hulk', 5, 'ANI', 4, 10, { kw: ['smash'], text: g => `After this takes damage and survives, give your other Animals +${2 * g}/+${2 * g}.`,
-  onDamagedC: (cs, m, side) => cs.allies(side).forEach(x => x !== m && x.tribe === 'ANI' && cs.buff(x, 2 * gm(m), 2 * gm(m))) });
-C('ani_queen', 'Animals Queen', 5, 'ANI', 5, 8, { text: g => `End of Turn: Your Animals gain ${15 * g}% more Health.`,
-  eot: (p, m) => boardOf(p, 'ANI').forEach(x => buff(x, 0, Math.max(1, Math.ceil(x.hp * .15 * gm(m))))) });
-C('ani_sasquatch', 'Mall Juggernaut', 6, 'ANI', 8, 10, { kw: ['taunt', 'smash'], text: g => `Start of Combat: ${g > 1 ? 'Quadruple' : 'Double'} the Health of your other Animals.`,
-  soc: (cs, m, side) => cs.allies(side).forEach(x => x !== m && x.tribe === 'ANI' && cs.buff(x, 0, x.hp * gm(m))) });
+  onDamagedC: (cs, m, side) => cs.allies(side).forEach(x => x !== m && isTr(x, 'ANI') && cs.buff(x, 2 * gm(m), 2 * gm(m))) });
+C('ani_queen', 'Animals Queen', 5, 'ANI', 5, 8, { text: g => `End of Turn: Your Animals gain ${15 * g.c}% more Health.`,
+  eot: (p, m) => boardOf(p, 'ANI').forEach(x => buff(x, 0, Math.max(1, Math.ceil(x.hp * .15 * gc(m))))) });
+C('ani_sasquatch', 'Mall Juggernaut', 6, 'ANI', 8, 10, { kw: ['taunt', 'smash'], text: g => `Start of Combat: ${g.c > 1 ? 'Quadruple' : 'Double'} the Health of your other Animals.`,
+  soc: (cs, m, side) => cs.allies(side).forEach(x => x !== m && isTr(x, 'ANI') && cs.buff(x, 0, x.hp * gc(m))) });
 C('ani_titan', 'Iron Titan', 6, 'ANI', 7, 12, { kw: ['taunt'], text: g => `After another friendly Animal takes damage and survives, give it +${2 * g}/+${2 * g} permanently.`,
-  onFriendlyDamagedC: (cs, m, side, t) => { if (t.tribe === 'ANI') cs.perm(t, 2 * gm(m), 2 * gm(m)); } });
+  onFriendlyDamagedC: (cs, m, side, t) => { if (isTr(t, 'ANI')) cs.perm(t, 2 * gm(m), 2 * gm(m)); } });
 
 // ---- BIOTECHNICA: Clones. Grow Clones from vats; Mutation makes every new Clone bigger. ----
-C('bio_vat', 'Vat Tech', 1, 'BIO', 1, 2, { text: g => `Flatline: Summon ${g > 1 ? 'three Clones' : 'a Clone'}.`,
-  dr: (cs, m, side, pos) => { for (let i = 0; i < gm(m); i++) cs.spawnClone(side, pos); } });
-C('bio_seed', 'Seedling', 2, 'BIO', 2, 2, { text: g => `Every other End of Turn: Grow ${g > 1 ? 'three Clones' : 'a Clone'} on your board.`,
-  eot: (p, m) => { if (G.turn % 2) return; for (let i = 0; i < gm(m); i++) addClone(p, p.board.indexOf(m) + 1); } });
+C('bio_vat', 'Vat Tech', 1, 'BIO', 1, 2, { text: g => `Flatline: Summon ${g.c > 1 ? 'three Clones' : 'a Clone'}.`,
+  dr: (cs, m, side, pos) => { for (let i = 0; i < gc(m); i++) cs.spawnClone(side, pos); } });
+C('bio_seed', 'Seedling', 2, 'BIO', 2, 2, { text: g => `Every other End of Turn: Grow ${g.c > 1 ? 'three Clones' : 'a Clone'} on your board.`,
+  eot: (p, m) => { if (G.turn % 2) return; for (let i = 0; i < gc(m); i++) addClone(p, p.board.indexOf(m) + 1); } });
 C('bio_splicer', 'Gene Splicer', 2, 'BIO', 2, 3, { text: g => `The first time you create a Clone each turn, gain ${g} Mutation.` });
-C('bio_lab', 'Lab Assistant', 2, 'BIO', 3, 2, { text: g => `Jack In: Grow ${g > 1 ? 'three Clones' : 'a Clone'} next to this.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) addClone(p, p.board.indexOf(m) + 1); } });
+C('bio_lab', 'Lab Assistant', 2, 'BIO', 3, 2, { text: g => `Jack In: Grow ${g.c > 1 ? 'three Clones' : 'a Clone'} next to this.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) addClone(p, p.board.indexOf(m) + 1); } });
 C('bio_graft', 'Tissue Graft', 3, 'BIO', 3, 4, { text: g => `Start of Combat: Give your Clones +${g}/+${g} for every 2 Clones you control.`,
   soc: (cs, m, side) => { const cl = cs.allies(side).filter(x => x.id === 'tok_clone'); const n = Math.floor(cl.length / 2) * gm(m); cl.forEach(x => cs.buff(x, n, n)); } });
-C('bio_incubator', 'Incubator', 3, 'BIO', 2, 5, { text: g => `End of Turn: Grow a Clone for every 3 non-Clone Biotechnica you control (up to ${3 * g}).`,
-  eot: (p, m) => { const n = Math.min(3 * gm(m), Math.floor(boardOf(p, 'BIO').filter(x => x.id !== 'tok_clone').length / 3)); for (let i = 0; i < n; i++) addClone(p, p.board.indexOf(m) + 1); } });
+C('bio_incubator', 'Incubator', 3, 'BIO', 2, 5, { text: g => `End of Turn: Grow a Clone for every 3 non-Clone Biotechnica you control (up to ${3 * g.c}).`,
+  eot: (p, m) => { const n = Math.min(3 * gc(m), Math.floor(boardOf(p, 'BIO').filter(x => x.id !== 'tok_clone').length / 3)); for (let i = 0; i < n; i++) addClone(p, p.board.indexOf(m) + 1); } });
 C('bio_harvest', 'Organ Harvester', 4, 'BIO', 4, 4, { text: g => `Whenever a friendly Clone dies, give a random friendly non-Clone Biotechnica +${g}/+${g} permanently.`,
-  onFriendlyDeathC: (cs, m, side, d) => { if (d.id !== 'tok_clone') return; const t = randOf(cs.allies(side).filter(x => x.tribe === 'BIO' && x.id !== 'tok_clone')); if (t) cs.perm(t, gm(m), gm(m)); } });
-C('bio_mitosis', 'Mitosis Pod', 4, 'BIO', 3, 5, { text: g => `The first ${3 * g} times a friendly Clone dies each combat, summon a Clone.`,
-  onFriendlyDeathC: (cs, m, side, d) => { if (d.id !== 'tok_clone' || (m._mit || 0) >= 3 * gm(m)) return; m._mit = (m._mit || 0) + 1; cs.spawnClone(side, cs.sides[side].b.length); } });
-C('bio_exec', 'Biotechnica Exec', 5, 'BIO', 4, 6, { text: g => `End of Turn: Gain ${2 * g} Mutation.`, eot: (p, m) => { p.mutation = (p.mutation || 0) + 2 * gm(m); } });
-C('bio_hive', 'Hive Mind', 5, 'BIO', 5, 5, { text: g => `Clones you create have ${g > 1 ? 'triple' : 'double'} stats.` });
-C('bio_genesis', 'Project Genesis', 6, 'BIO', 6, 6, { text: g => `Start of Combat: Summon a Clone for each other non-Clone Biotechnica you control (up to ${8 * g}).`,
-  soc: (cs, m, side) => { const n = Math.min(8 * gm(m), cs.allies(side).filter(x => x !== m && x.tribe === 'BIO' && x.id !== 'tok_clone').length); for (let i = 0; i < n; i++) cs.spawnClone(side, cs.sides[side].b.length); } });
+  onFriendlyDeathC: (cs, m, side, d) => { if (d.id !== 'tok_clone') return; const t = randOf(cs.allies(side).filter(x => isTr(x, 'BIO') && x.id !== 'tok_clone')); if (t) cs.perm(t, gm(m), gm(m)); } });
+C('bio_mitosis', 'Mitosis Pod', 4, 'BIO', 3, 5, { text: g => `The first ${3 * g.c} times a friendly Clone dies each combat, summon a Clone.`,
+  onFriendlyDeathC: (cs, m, side, d) => { if (d.id !== 'tok_clone' || (m._mit || 0) >= 3 * gc(m)) return; m._mit = (m._mit || 0) + 1; cs.spawnClone(side, cs.sides[side].b.length); } });
+C('bio_exec', 'Biotechnica Exec', 5, 'BIO', 4, 6, { text: g => `End of Turn: Gain ${2 * g.c} Mutation.`, eot: (p, m) => { p.mutation = (p.mutation || 0) + 2 * gc(m); } });
+C('bio_hive', 'Hive Mind', 5, 'BIO', 5, 5, { text: g => `Clones you create have ${g.c > 1 ? 'triple' : 'double'} stats.` });
+C('bio_genesis', 'Project Genesis', 6, 'BIO', 6, 6, { text: g => `Start of Combat: Summon a Clone for each other non-Clone Biotechnica you control (up to ${8 * g.c}).`,
+  soc: (cs, m, side) => { const n = Math.min(8 * gc(m), cs.allies(side).filter(x => x !== m && isTr(x, 'BIO') && x.id !== 'tok_clone').length); for (let i = 0; i < n; i++) cs.spawnClone(side, cs.sides[side].b.length); } });
 C('bio_mother', 'Mother Vat', 6, 'BIO', 5, 9, { text: g => `End of Turn: Give your Clones +${g}/+${g} for every 2 Mutation.`,
   eot: (p, m) => { const n = Math.floor((p.mutation || 0) / 2) * gm(m); if (n) p.board.forEach(x => x.id === 'tok_clone' && buff(x, n, n)); } });
 
 // ---- THE MOX: Rally. They protect each other; buffs scale with how many factions you control. ----
-C('mox_bouncer', 'Mox Bouncer', 1, 'MOX', 3, 3, { kw: ['taunt'], text: g => `Start of Combat: Gain +${g}/+${g} for each faction you control.`,
-  soc: (cs, m, side) => { const n = rally(cs.allies(side)) * gm(m); cs.buff(m, n, n); } });
+C('mox_bouncer', 'Mox Bouncer', 1, 'MOX', 3, 3, { kw: ['taunt'], text: g => `Start of Combat: Gain +${g}/+${g} for every 2 factions you control.`,
+  soc: (cs, m, side) => { const n = Math.floor(rally(cs.allies(side)) / 2) * gm(m); cs.buff(m, n, n); } });
 C('mox_hostess', 'Lizzie\'s Hostess', 1, 'MOX', 1, 2, { target: 'friendly', text: g => `Jack In: Give a friendly minion +${g}/+${g} for each faction you control.`,
   bc: (p, m, t) => { if (t) { const n = rally(p.board) * gm(m); buff(t, n, n); } } });
-C('mox_guard', 'Mox Guardian', 2, 'MOX', 3, 3, { text: g => `Whenever a friendly minion of another faction dies, gain +${2 * g}/+${2 * g}.`,
-  onFriendlyDeathC: (cs, m, side, d) => { if (d.tribe !== 'MOX') cs.buff(m, 2 * gm(m), 2 * gm(m)); } });
-C('mox_recruiter', 'Mox Recruiter', 2, 'MOX', 2, 2, { text: g => `Jack In: Discover a minion from a faction you don't control${g > 1 ? ' three times' : ''}.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) { const have = new Set(p.board.map(x => x.tribe)); discoverMinion(p, Math.max(1, p.tier - 1), c => c.tribe && !have.has(c.tribe)); } } });
+C('mox_guard', 'Mox Guardian', 2, 'MOX', 3, 3, { text: g => `Whenever a friendly minion of another faction dies, gain +${g}/+${g}.`,
+  onFriendlyDeathC: (cs, m, side, d) => { if (d.tribe !== 'MOX') cs.buff(m, gm(m), gm(m)); } });
+C('mox_recruiter', 'Mox Recruiter', 2, 'MOX', 2, 2, { text: g => `Jack In: Discover a minion from a faction you don't control${g.c > 1 ? ' three times' : ''}.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) { const have = new Set(p.board.map(x => x.tribe)); discoverMinion(p, Math.max(1, p.tier - 1), c => c.tribe && !have.has(c.tribe)); } } });
 C('mox_bartender', 'Lizzie\'s Bartender', 3, 'MOX', 3, 4, { text: g => `End of Turn: Give a random minion of each faction you control +${2 * g}/+${2 * g}.`,
   eot: (p, m) => { const by = {}; p.board.forEach(x => { if (x.tribe) (by[x.tribe] = by[x.tribe] || []).push(x); }); const k = rallyMult(p.board); for (const t in by) for (let i = 0; i < k; i++) buff(pick(by[t]), 2 * gm(m), 2 * gm(m)); } });
-C('mox_dancer', 'Braindance Star', 3, 'MOX', 2, 5, { text: g => `Start of Combat: Give your minions +${g}/+${g} for each faction you control.`,
-  soc: (cs, m, side) => { const n = rally(cs.allies(side)) * gm(m); cs.allies(side).forEach(x => cs.buff(x, n, n)); } });
+C('mox_dancer', 'Braindance Star', 3, 'MOX', 2, 5, { text: g => `Start of Combat: Give your minions +${g}/+${g} for every 2 factions you control.`,
+  soc: (cs, m, side) => { const n = Math.floor(rally(cs.allies(side)) / 2) * gm(m); cs.allies(side).forEach(x => cs.buff(x, n, n)); } });
 C('mox_sister', 'Mox Sisterhood', 4, 'MOX', 4, 5, { text: g => `After you play a minion of a faction you didn't control, give your minions +${g}/+${g}.`,
   onPlayFriendly: (p, m, x) => { if (x.tribe && p.board.filter(y => y.tribe === x.tribe).length === 1) p.board.forEach(y => buff(y, gm(m), gm(m))); } });
-C('mox_shield', 'Mox Shieldmaiden', 4, 'MOX', 3, 6, { kw: ['taunt'], text: g => `Start of Combat: Give ${g > 1 ? 'three minions' : 'one minion'} of each other faction you control Barrier.`,
+C('mox_shield', 'Mox Shieldmaiden', 4, 'MOX', 3, 6, { kw: ['taunt'], text: g => `Start of Combat: Give ${g.c > 1 ? 'three minions' : 'one minion'} of each other faction you control Barrier.`,
   soc: (cs, m, side) => { const by = {}; cs.allies(side).forEach(x => { if (x.tribe && x.tribe !== 'MOX') (by[x.tribe] = by[x.tribe] || []).push(x); }); for (const t in by) shuffle(by[t].filter(x => !x.shield)).slice(0, gm(m)).forEach(x => x.shield = true); } });
-C('mox_susie', 'Susie Q', 5, 'MOX', 5, 5, { text: g => `End of Turn: Give your minions +${g}/+${g} for each faction you control.`,
-  eot: (p, m) => { const n = rally(p.board) * gm(m); if (n) p.board.forEach(x => buff(x, n, n)); } });
-C('mox_avenger', 'Mox Avenger', 5, 'MOX', 6, 4, { text: g => `Whenever another friendly minion dies, give your Mox +${2 * g}/+${2 * g}.`,
-  onFriendlyDeathC: (cs, m, side) => cs.allies(side).forEach(x => x.tribe === 'MOX' && cs.buff(x, 2 * gm(m), 2 * gm(m))) });
-C('mox_matriarch', 'Mox Matriarch', 6, 'MOX', 6, 7, { text: g => `Your effects count each faction you control ${g > 1 ? 'three times' : 'twice'}.` });
-C('mox_unity', 'Street Unity', 6, 'MOX', 7, 7, { text: g => `Start of Combat: Give your minions +${g}/+${g} for each faction you control.`,
-  soc: (cs, m, side) => { const n = rally(cs.allies(side)) * gm(m); cs.allies(side).forEach(x => cs.buff(x, n, n)); } });
+C('mox_susie', 'Susie Q', 5, 'MOX', 5, 5, { text: g => `End of Turn: Give your minions +${g}/+${g} for every 2 factions you control.`,
+  eot: (p, m) => { const n = Math.floor(rally(p.board) / 2) * gm(m); if (n) p.board.forEach(x => buff(x, n, n)); } });
+C('mox_avenger', 'Mox Avenger', 5, 'MOX', 6, 4, { text: g => `Whenever another friendly minion dies, give your Mox +${g}/+${g}.`,
+  onFriendlyDeathC: (cs, m, side) => cs.allies(side).forEach(x => x.tribe === 'MOX' && cs.buff(x, gm(m), gm(m))) });
+C('mox_matriarch', 'Mox Matriarch', 6, 'MOX', 6, 7, { text: g => `Your effects count each faction you control ${g.c > 1 ? 'three times' : 'twice'}.` });
+C('mox_unity', 'Street Unity', 6, 'MOX', 7, 7, { text: g => `Start of Combat: Give your minions +${g}/+${g} for every 2 factions you control.`,
+  soc: (cs, m, side) => { const n = Math.floor(rally(cs.allies(side)) / 2) * gm(m); cs.allies(side).forEach(x => cs.buff(x, n, n)); } });
 
 // ---- NEUTRAL ----
 C('n_streetkid', 'Street Kid', 1, null, 3, 3, { kw: ['taunt'], text: g => `Flatline: Give a random friendly minion +${2 * g}/+${2 * g} permanently.`,
   dr: (cs, m, side) => { const t = randOf(cs.allies(side)); if (t) cs.perm(t, 2 * gm(m), 2 * gm(m)); } });
 C('n_scav', 'Scavenger', 1, null, 3, 2, { text: g => `Jack In: Gain +${g}/+${g} for each other minion you control (up to ${8 * g}).`,
   bc: (p, m) => { const n = Math.min(8, p.board.length - 1) * gm(m); buff(m, n, n); } });
-C('n_medic', 'Trauma Team Medic', 2, null, 2, 3, { text: g => `Flatline: Give ${g > 1 ? 'three random friendly minions' : 'a random friendly minion'} Barrier.`,
-  dr: (cs, m, side) => shuffle(cs.allies(side).filter(x => !x.shield)).slice(0, gm(m)).forEach(x => x.shield = true) });
-C('n_ripper', 'Back-Alley Ripper', 2, null, 2, 3, { target: 'friendly', text: g => `Jack In: Give a friendly minion +${g}/+${g} and +${g} Humanity.`,
-  bc: (p, m, t) => { if (t) { buff(t, gm(m), gm(m)); t.humMod = (t.humMod || 0) + gm(m); } } });
-C('n_fixer', 'Fixer', 3, null, 3, 3, { text: g => `Jack In: Discover a minion of your Tavern Tier${g > 1 ? ' three times' : ''}.`,
-  bc: (p, m) => { for (let i = 0; i < gm(m); i++) discoverMinion(p, p.tier); } });
+C('n_medic', 'Trauma Team Medic', 2, null, 2, 3, { text: g => `Flatline: Give ${g.c > 1 ? 'three random friendly minions' : 'a random friendly minion'} Barrier.`,
+  dr: (cs, m, side) => shuffle(cs.allies(side).filter(x => !x.shield)).slice(0, gc(m)).forEach(x => x.shield = true) });
+C('n_ripper', 'Back-Alley Ripper', 2, null, 2, 3, { target: 'friendly', text: g => `Jack In: Give a friendly minion +${g}/+${g} and +${g.c} Humanity.`,
+  bc: (p, m, t) => { if (t) { buff(t, gm(m), gm(m)); t.humMod = (t.humMod || 0) + gc(m); } } });
+C('n_fixer', 'Fixer', 3, null, 3, 3, { text: g => `Jack In: Discover a minion of your Tavern Tier${g.c > 1 ? ' three times' : ''}.`,
+  bc: (p, m) => { for (let i = 0; i < gc(m); i++) discoverMinion(p, p.tier); } });
 C('n_merc', 'Afterlife Merc', 3, null, 3, 3, { text: g => `Whenever another friendly minion dies, gain +${g}/+${g} permanently.`, onFriendlyDeathC: (cs, m) => cs.perm(m, gm(m), gm(m)) });
 C('n_maxtac', 'Max-Tac Officer', 4, null, 3, 5, { kw: ['cleave'], text: g => `Start of Combat: Deal ${4 * g} damage to each enemy Cyberpsycho.`,
   soc: (cs, m, side) => cs.allies(1 - side).forEach(t => t.psycho && cs.damage(t, 4 * gm(m), m)) });
 C('n_bartender', 'Afterlife Bartender', 4, null, 3, 3, { text: g => `Jack In: Give your other minions +${g}/+${g}.`, bc: (p, m) => p.board.forEach(x => x !== m && buff(x, gm(m), gm(m))) });
-C('n_delamain', 'Delamain', 5, null, 3, 4, { text: g => `Your Jack In effects trigger ${g > 1 ? 'three times' : 'twice'}.` });
-C('n_traumaav', 'Trauma Team AV', 5, null, 5, 6, { text: g => `Flatline: Give ${g > 1 ? 'six' : 'two'} random friendly minions Barrier.`,
-  dr: (cs, m, side) => shuffle(cs.allies(side).filter(x => !x.shield)).slice(0, 2 * gm(m)).forEach(x => x.shield = true) });
+C('n_delamain', 'Delamain', 5, null, 3, 4, { text: g => `Your Jack In effects trigger ${g.c > 1 ? 'three times' : 'twice'}.` });
+C('n_traumaav', 'Trauma Team AV', 5, null, 5, 6, { text: g => `Flatline: Give ${g.c > 1 ? 'six' : 'two'} random friendly minions Barrier.`,
+  dr: (cs, m, side) => shuffle(cs.allies(side).filter(x => !x.shield)).slice(0, 2 * gc(m)).forEach(x => x.shield = true) });
 C('n_soulkiller', 'Soulkiller', 6, null, 7, 10, { kw: ['windfury'], attackLowest: true, text: 'Always attacks the enemy minion with the lowest Attack.' });
 C('n_legend', 'Afterlife Legend', 6, null, 5, 7, { kw: ['taunt', 'shield'], text: g => `After this loses Barrier, give your other minions +${g}/+${g}.`,
   onShieldLostC: (cs, m, side, l) => { if (l === m) cs.allies(side).forEach(x => x !== m && cs.buff(x, gm(m), gm(m))); } });
 
-function cardText(c, golden) { const t = typeof c.text === 'function' ? c.text(golden ? 3 : 1) : c.text; return t || ''; }
+function textG(c, golden, p) { const n = new Number((golden ? 3 : 1) * (p ? scaleK(p, c.sk) : 1)); n.c = golden ? 3 : 1; return n; }
+function defText(d, p) { if (!d) return ''; return typeof d.text === 'function' ? d.text(p ? kOne(p) : 1, p ? (p.tier || 1) : 1) : (d.text || ''); }
+function cardText(c, golden, m, p) { const t = typeof c.text === 'function' ? c.text(textG(c, golden, (m && ownerOf(m)) || p)) : c.text; return t || ''; }
 
 // ---------------- CYBERWARE ----------------
 const WARE = {}; const WARE_LIST = [];
 function W(id, name, tier, cost, hum, text, o) { const w = Object.assign({ id, name, tier, cost, hum, text, kw: [] }, o || {}); WARE[id] = w; WARE_LIST.push(w); }
-W('cw_optics', 'Kiroshi Optics', 1, 1, 1, '+3 Attack.', { atk: 3 });
-W('cw_subderm', 'Subdermal Armor', 1, 1, 1, '+5 Health.', { hp: 5 });
-W('cw_neofiber', 'Neofiber', 1, 1, 1, '+2/+2.', { atk: 2, hp: 2 });
-W('cw_camo', 'Optical Camo', 2, 1, 1, '+1/+1 and Optical Camo.', { atk: 1, hp: 1, kw: ['stealth'] });
-W('cw_gorilla', 'Gorilla Arms', 2, 2, 2, '+4/+2 and Smash.', { atk: 4, hp: 2, kw: ['smash'] });
-W('cw_mantis', 'Mantis Blades', 2, 2, 2, '+3 Attack. After this attacks, deal 3 damage to a random enemy minion.', { atk: 3,
-  afterAttackC: (cs, m, side) => { const t = randOf(cs.allies(1 - side)); if (t) cs.damage(t, 3, m); } });
-W('cw_bloodpump', 'Blood Pump', 2, 1, 1, '+1/+1. Flatline: Give a random friendly minion +3/+3.', { atk: 1, hp: 1,
-  dr: (cs, m, side) => { const t = randOf(cs.allies(side)); if (t) cs.buff(t, 3, 3); } });
-W('cw_monowire', 'Monowire', 3, 2, 2, '+2 Attack and Cleave.', { atk: 2, kw: ['cleave'] });
-W('cw_kerenzikov', 'Kerenzikov', 3, 2, 2, '+2/+2 and Kerenzikov.', { atk: 2, hp: 2, kw: ['first'] });
-W('cw_paineditor', 'Pain Editor', 3, 2, 2, '+0/+3 and Barrier.', { hp: 3, kw: ['shield'] });
-W('cw_launcher', 'Projectile Launcher', 3, 2, 2, 'Start of Combat: Deal 5 damage to a random enemy minion.', {
-  soc: (cs, m, side) => { const t = randOf(cs.allies(1 - side)); if (t) cs.damage(t, 5, m); } });
-W('cw_smartlink', 'Smart Link', 4, 2, 1, '+2/+2 and Neurotoxin.', { atk: 2, hp: 2, kw: ['venom'] });
-W('cw_heart', 'Second Heart', 4, 2, 2, '+2/+3 and Reboot.', { atk: 2, hp: 3, kw: ['reborn'] });
-W('cw_sandevistan', 'Sandevistan', 4, 2, 3, '+3/+3 and Overclock.', { atk: 3, hp: 3, kw: ['windfury'] });
-W('cw_berserk', 'Berserk', 5, 2, 3, '+6/+6. Whenever this takes damage, gain +2 Attack.', { atk: 6, hp: 6, onDamagedC: (cs, m) => cs.buff(m, 2, 0) });
-W('cw_synaptic', 'Synaptic Accelerator', 5, 2, 2, 'Start of Combat: Gain +Attack and +Health equal to your Tavern Tier ×3.', {
-  soc: (cs, m, side) => cs.buff(m, 3 * (cs.sides[side].p.tier || 1), 3 * (cs.sides[side].p.tier || 1)) });
-W('cw_militech', 'Militech Apogee', 6, 4, 3, '+8/+8 and Barrier.', { atk: 8, hp: 8, kw: ['shield'] });
-W('cw_blackchip', 'Black-Market Chip', 1, 1, 0, '+3/+3. Uses a random 0–3 Humanity, rolled when installed.', { atk: 3, hp: 3, rnd: true, install: (p, m) => { m.humMod = (m.humMod || 0) - rnd(4); } });
-W('cw_roulette', 'Roulette Implant', 1, 1, 1, 'Gain +0 to +6 Attack and +0 to +6 Health, rolled when installed.', { rnd: true, install: (p, m) => buff(m, rnd(7), rnd(7)) });
-W('cw_malware', 'Free Implant', 1, 0, 0, '+5/+5. Malicious: each combat, 25% chance it turns on its own allies.', { atk: 5, hp: 5, rnd: true, malicious: true,
+// Cyberware is a permanent upgrade of one of your minions. Stats scale with your Tavern Tier x turn when installed.
+W('cw_optics', 'Kiroshi Optics', 1, 1, 1, k => `+${k} Attack. Sees through Optical Camo and always attacks the enemy with the lowest Health.`, { atk: 1, kw: ['kiroshi'] });
+W('cw_subderm', 'Subdermal Armor', 1, 1, 1, k => `+${2 * k} Health. Takes only half damage from every hit.`, { hp: 2, kw: ['subderm'] });
+W('cw_neofiber', 'Neofiber', 1, 1, 1, k => `+${k}/+${k}. Every third hit on this misses.`, { atk: 1, hp: 1, kw: ['neofiber'] });
+W('cw_camo', 'Optical Camo', 2, 1, 1, 'Optical Camo. After this destroys a minion, it vanishes into Optical Camo again.', { kw: ['stealth', 'recloak'] });
+W('cw_gorilla', 'Gorilla Arms', 2, 2, 2, k => `+${2 * k} Attack and Smash.`, { atk: 2, kw: ['smash'] });
+W('cw_mantis', 'Mantis Blades', 2, 2, 2, k => `+${k} Attack. After this attacks, it slashes a random enemy minion for ${2 * k} damage.`, { atk: 1,
+  afterAttackC: (cs, m, side) => { const t = randOf(cs.allies(1 - side)); if (t) cs.damage(t, 2 * kOne(cs.sides[side].p), m); } });
+W('cw_bloodpump', 'Blood Pump', 2, 1, 1, k => `+${k}/+${2 * k}. After this survives an attack, it heals to full Health.`, { atk: 1, hp: 2, kw: ['bloodpump'] });
+W('cw_monowire', 'Monowire', 3, 2, 2, k => `+${k} Attack and Cleave.`, { atk: 1, kw: ['cleave'] });
+W('cw_kerenzikov', 'Kerenzikov', 3, 2, 2, 'Kerenzikov. After this destroys a minion, it attacks again right away.', { kw: ['first'],
+  onKillC: (cs, m, side) => { if (!m._kz) { m._kz = true; cs.extraAttack(m, side); } } });
+W('cw_paineditor', 'Pain Editor', 3, 2, 2, k => `Barrier. When this loses Barrier, it gains +${2 * k} Attack.`, { kw: ['shield'],
+  onShieldLostC: (cs, m, side, l) => { if (l === m) cs.buff(m, 2 * kOne(cs.sides[side].p), 0); } });
+W('cw_launcher', 'Projectile Launcher', 3, 2, 2, k => `Start of Combat: fire a missile at a random enemy minion for ${3 * k} damage.`, {
+  soc: (cs, m, side) => { const t = randOf(cs.allies(1 - side)); if (t) cs.damage(t, 3 * kOne(cs.sides[side].p), m); } });
+W('cw_deck', 'Cyberdeck', 3, 2, 2, 'Start of Combat: this netruns a random Quickhack into the enemy.', {
+  soc: (cs, m, side) => { const ids = Object.keys(HACKS).filter(h => !['blackwall', 'collapse', 'suicide', 'tower'].includes(h)); HACKS[pick(ids)](cs, side); } });
+W('cw_smartlink', 'Smart Link', 4, 2, 1, 'Neurotoxin. After this attacks, it reloads Neurotoxin.', { kw: ['venom'], afterAttackC: (cs, m) => { m.venom = true; } });
+W('cw_heart', 'Second Heart', 4, 2, 2, 'Reboot. Comes back with all its Attack and Health instead of 1 Health.', { kw: ['reborn', 'fullreboot'] });
+W('cw_sandevistan', 'Sandevistan', 4, 2, 3, k => `+${k}/+${k} and Overclock.`, { atk: 1, hp: 1, kw: ['windfury'] });
+W('cw_biomon', 'Biomonitor', 4, 2, 2, 'The first time this would die each combat, it heals to full Health instead.', { kw: ['biomon'] });
+W('cw_berserk', 'Berserk', 5, 2, 3, k => `+${2 * k}/+${2 * k}. Whenever this takes damage, it gains +${k} Attack.`, { atk: 2, hp: 2, onDamagedC: (cs, m, side) => cs.buff(m, kOne(cs.sides[side].p), 0) });
+W('cw_synaptic', 'Synaptic Accelerator', 5, 2, 2, 'Start of Combat: this attacks immediately, before anyone else.', {
+  soc: (cs, m, side) => { if (m.atk > 0 && cs.allies(1 - side).length) { cs.doAttack(m, side); } } });
+W('cw_erasure', 'Erasure Protocol', 5, 4, 3, 'The first minion this destroys each combat is erased: removed from its owner\'s board forever.', {
+  onKillC: (cs, m, side, t) => { if (!m._erase && t && t.src) { m._erase = true; cs.permFx(t, 'erase'); } } });
+W('cw_militech', 'Militech Apogee', 6, 4, 3, k => `+${3 * k}/+${3 * k} and Barrier. After this attacks, it regains Barrier.`, { atk: 3, hp: 3, kw: ['shield'], afterAttackC: (cs, m) => { m.shield = true; } });
+W('cw_blackchip', 'Black-Market Chip', 1, 1, 0, k => `+${2 * k}/+${2 * k}. Burns a random 0–3 Humanity, rolled when installed.`, { atk: 2, hp: 2, rnd: true, install: (p, m) => { m.humMod = (m.humMod || 0) - rnd(4); } });
+W('cw_roulette', 'Roulette Implant', 1, 1, 1, k => `Gain +0 to +${4 * k} Attack and +0 to +${4 * k} Health, rolled when installed.`, { rnd: true, install: (p, m) => { const k = kOne(p); buff(m, rnd(4 * k + 1), rnd(4 * k + 1)); } });
+W('cw_malware', 'Free Implant', 1, 0, 0, k => `+${3 * k}/+${3 * k}. Malicious: each combat, 25% chance it turns on its own allies.`, { atk: 3, hp: 3, rnd: true, malicious: true,
   soc: (cs, m) => { if (Math.random() < .25) turncoat(cs, m); } });
-W('cw_firmware', 'Unstable Firmware', 2, 2, 1, '+1/+1. Start of Combat: Gain a random keyword.', { atk: 1, hp: 1, rnd: true, soc: (cs, m) => { m[pick(RKW)] = true; } });
+W('cw_firmware', 'Unstable Firmware', 2, 2, 1, k => `+${k}/+${k}. Start of Combat: gains a random keyword.`, { atk: 1, hp: 1, rnd: true, soc: (cs, m) => { m[pick(RKW)] = true; } });
 W('cw_bootleg', 'Bootleg Sandevistan', 2, 1, 1, 'Overclock. Start of Combat: 50% chance it glitches and this loses Overclock.', { kw: ['windfury'], rnd: true, soc: (cs, m) => { if (Math.random() < .5) m.windfury = false; } });
-W('cw_parasite', 'Parasite Firmware', 3, 1, 0, '+6/+6. Malicious: each End of Turn, eats 1 Humanity.', { atk: 6, hp: 6, rnd: true, malicious: true,
+W('cw_parasite', 'Parasite Firmware', 3, 1, 0, k => `+${4 * k}/+${4 * k}. Malicious: each End of Turn, it eats 1 Humanity.`, { atk: 4, hp: 4, rnd: true, malicious: true,
   eot: (p, m) => { const w = isPsycho(m, p); m.humMod = (m.humMod || 0) - 1; psychoCheck(p, m, w); } });
 W('cw_lottery', 'Lottery Chip', 3, 2, 0, 'Becomes a random Cyberware, up to one Tier above your Tavern.', { rnd: true,
   install: (p, m) => { const i = m.ware.lastIndexOf('cw_lottery'); if (i >= 0) m.ware.splice(i, 1); p.arsenal = Math.max(0, (p.arsenal || 0) - 1); const l = WARE_LIST.filter(w => w.tier <= Math.min(6, p.tier + 1) && w.id !== 'cw_lottery'); installWare(p, m, pick(l).id); } });
-W('cw_gambler', 'Gambler’s Reflexes', 4, 2, 1, 'Start of Combat: Flip a coin: double this minion’s Attack, or halve it.', { rnd: true, soc: (cs, m) => { if (Math.random() < .5) cs.buff(m, m.atk, 0); else m.atk = Math.floor(m.atk / 2); } });
-W('cw_overcharge', 'Overcharged Core', 4, 2, 2, '+8 Attack. After this attacks, 30% chance it takes 4 damage.', { atk: 8, rnd: true, afterAttackC: (cs, m) => { if (m.hp > 0 && Math.random() < .3) cs.damage(m, 4, null); } });
-W('cw_rogueai', 'Rogue AI Shard', 5, 2, 1, '+5/+5. Start of Combat: Copy a random keyword from a random enemy minion.', { atk: 5, hp: 5, rnd: true,
+W('cw_gambler', 'Gambler’s Reflexes', 4, 2, 1, 'Start of Combat: flip a coin: double this minion’s Attack, or halve it.', { rnd: true, soc: (cs, m) => { if (Math.random() < .5) cs.buff(m, m.atk, 0); else m.atk = Math.ceil(m.atk / 2); } });
+W('cw_overcharge', 'Overcharged Core', 4, 2, 2, k => `+${4 * k} Attack. After this attacks, 30% chance it shorts out and takes ${2 * k} damage.`, { atk: 4, rnd: true, afterAttackC: (cs, m, side) => { if (m.hp > 0 && Math.random() < .3) cs.damage(m, 2 * kOne(cs.sides[side].p), null); } });
+W('cw_rogueai', 'Rogue AI Shard', 5, 2, 1, k => `+${2 * k}/+${2 * k}. Start of Combat: copies a random keyword from a random enemy minion.`, { atk: 2, hp: 2, rnd: true,
   soc: (cs, m, side) => { const e = randOf(cs.allies(1 - side)); if (!e) return; const ks = RKW.filter(k => e[k]); if (ks.length) m[pick(ks)] = true; } });
 
 // ---------------- QUICKHACKS (cost RAM) ----------------
 const SPELLS = {}; const SPELL_LIST = [];
 function S(id, name, tier, cost, text, o) { const s = Object.assign({ id, name, tier, cost, text, kind: 'spell' }, o); SPELLS[id] = s; SPELL_LIST.push(s); }
-S('sp_ping', 'Ping', 1, 1, 'Refresh the Tavern.', { cast: p => refreshShop(p) });
-S('sp_optics', 'Reboot Optics', 1, 1, 'Give a friendly minion Optical Camo and +1/+1.', { target: true, cast: (p, t) => { t.stealth = true; buff(t, 1, 1); } });
-S('sp_shortc', 'Short Circuit', 1, 2, 'Give a friendly minion +3 Attack.', { target: true, cast: (p, t) => buff(t, 3, 0) });
-S('sp_wipe', 'Memory Wipe', 2, 2, 'Give a friendly minion +2 Humanity and +1/+1.', { target: true, cast: (p, t) => { t.humMod = (t.humMod || 0) + 2; buff(t, 1, 1); } });
-S('sp_glitch', 'Weapon Glitch', 2, 2, 'Next combat: The enemy minion with the highest Attack has its Attack set to 1.', { cast: p => p.hacks.push('glitch') });
-S('sp_contagion', 'Contagion', 2, 3, 'Give a friendly minion Neurotoxin.', { target: true, cast: (p, t) => { t.venom = true; } });
-S('sp_breach', 'Breach Protocol', 2, 3, 'Discover a minion of your Tavern Tier.', { cast: p => discoverMinion(p, p.tier) });
-S('sp_malfunction', 'Cyberware Malfunction', 3, 3, 'Next combat: Deal 4 damage to each enemy minion that has Cyberware.', { cast: p => p.hacks.push('malfunction') });
-S('sp_overheat', 'Overheat', 3, 3, 'Next combat: Deal 2 damage to all enemy minions.', { cast: p => p.hacks.push('overheat') });
-S('sp_sonic', 'Sonic Shock', 3, 3, 'Give a friendly minion Barrier.', { target: true, cast: (p, t) => { t.shield = true; } });
-S('sp_backup', 'Request Backup', 3, 3, 'Get a random minion of your Tavern Tier.', { cast: p => { const l = CARD_LIST.filter(c => c.tier === p.tier && inLobby(c) && G.pool[c.id] > 0); if (!l.length) return; const c = pick(l); G.pool[c.id]--; giveCard(p, makeMinion(c.id)); } });
-S('sp_psychosis', 'Chrome Overload', 4, 4, 'Give a friendly minion +6/+6. It becomes a Cyberpsycho.', { target: true,
-  cast: (p, t) => { const w = isPsycho(t, p); buff(t, 6, 6); while (!isPsycho(t, p)) t.humMod = (t.humMod || 0) - 1; psychoCheck(p, t, w); } });
-S('sp_madness', 'Cyberpsychosis', 3, 4, 'Next combat: The strongest enemy minion turns on its own allies with double Attack.', { cast: p => p.hacks.push('madness') });
-S('sp_burnout', 'Synapse Burnout', 4, 4, 'Next combat: Deal 8 damage to the enemy minion with the highest Attack.', { cast: p => p.hacks.push('burnout') });
-S('sp_reset', 'System Reset', 4, 4, 'Give a friendly minion Reboot.', { target: true, cast: (p, t) => { t.reborn = true; } });
-S('sp_grenade', 'Detonate Grenade', 5, 5, 'Give your minions +2/+1.', { cast: p => p.board.forEach(x => buff(x, 2, 1)) });
-S('sp_blackwall', 'Blackwall Breach', 6, 7, 'Make a friendly minion Golden.', { target: true, tfilter: t => !t.golden, cast: (p, t) => makeGolden(t) });
-S('sp_collapse', 'System Collapse', 6, 8, 'Give your minions +3/+3.', { cast: p => p.board.forEach(x => buff(x, 3, 3)) });
+// Quickhacks only ever hit the enemy. Numbers scale with your Tavern Tier x turn when combat starts.
+S('sp_ping', 'Ping', 1, 1, 'Scan your next opponent\'s board. Next combat: their minions lose Optical Camo.', { cast: p => { emit('scan', p); p.hacks.push('ping'); } });
+S('sp_optics', 'Reboot Optics', 1, 1, 'Next combat: the 2 left-most enemy minions are blinded: each of their attacks has a 50% chance to miss.', { cast: p => p.hacks.push('optics') });
+S('sp_shortc', 'Short Circuit', 1, 2, k => `Next combat: deal ${3 * k} damage to the enemy minion with the most Cyberware. Its Cyberware shuts down for the fight.`, { cast: p => p.hacks.push('shortc') });
+S('sp_spike', 'Neural Spike', 2, 2, k => `Next combat: deal ${2 * k} damage to a random enemy minion and permanently burn 1 of its Humanity.`, { cast: p => p.hacks.push('spike') });
+S('sp_wipe', 'Memory Wipe', 2, 2, 'Next combat: the left-most enemy minion forgets everything: it loses its abilities and keywords.', { cast: p => p.hacks.push('wipe') });
+S('sp_glitch', 'Weapon Glitch', 2, 2, 'Next combat: the enemy minion with the highest Attack has its Attack set to 1.', { cast: p => p.hacks.push('glitch') });
+S('sp_contagion', 'Contagion', 2, 3, k => `Next combat: infect a random enemy minion with ${2 * k} damage. When an infected minion dies, the infection jumps to a minion next to it.`, { cast: p => p.hacks.push('contagion') });
+S('sp_breach', 'Breach Protocol', 2, 3, 'Steal the data of a random minion on your next opponent\'s board: get a copy of it.', { cast: p => { const o = G.players.find(x => x.id === p.nextOpp) || (G.pairs || []).flat().find(x => x.isGhost); const src = o && randOf((o.board || []).filter(x => CARDS[x.id] && !CARDS[x.id].token)); if (src) giveCard(p, makeMinion(src.id)); else discoverMinion(p, p.tier); } });
+S('sp_malfunction', 'Cyberware Malfunction', 3, 3, k => `Next combat: all enemy Cyberware shuts down for the fight, and every enemy minion with Cyberware takes ${2 * k} damage.`, { cast: p => p.hacks.push('malfunction') });
+S('sp_overheat', 'Overheat', 3, 3, k => `Next combat: enemy minions burn: each time one attacks, it takes ${k} damage.`, { cast: p => p.hacks.push('overheat') });
+S('sp_sonic', 'Sonic Shock', 3, 3, 'Next combat: enemy minions lose Barrier and Bodyguard.', { cast: p => p.hacks.push('sonic') });
+S('sp_madness', 'Cyberpsychosis', 3, 4, 'Next combat: the strongest enemy minion turns on its own allies with double Attack.', { cast: p => p.hacks.push('madness') });
+S('sp_psychosis', 'Chrome Overload', 4, 4, 'Permanently burn 2 Humanity from every enemy minion that has Cyberware (next combat). Some of them may snap.', { cast: p => p.hacks.push('overload') });
+S('sp_burnout', 'Synapse Burnout', 4, 4, k => `Next combat: deal ${4 * k} damage to the enemy minion with the highest Attack. If it dies, its Flatline doesn't trigger.`, { cast: p => p.hacks.push('burnout') });
+S('sp_reset', 'System Reset', 4, 4, 'Next combat: enemy minions lose Reboot, and enemy Flatline effects don\'t trigger.', { cast: p => p.hacks.push('reset') });
+S('sp_grenade', 'Detonate Grenade', 5, 5, k => `Next combat: deal ${4 * k} damage to the enemy minion with the most Health and to both minions next to it.`, { cast: p => p.hacks.push('grenade') });
+S('sp_suicide', 'Suicide', 5, 6, 'Next combat: the enemy minion with the highest Attack destroys itself before the fight.', { cast: p => p.hacks.push('suicide') });
+S('sp_blackwall', 'Blackwall Breach', 6, 8, 'Next combat: a rogue AI takes over the 2 strongest enemy minions. They fight for you.', { cast: p => p.hacks.push('blackwall') });
+S('sp_collapse', 'System Collapse', 6, 9, 'Next combat: the enemy minion with the highest Attack is erased: destroyed before the fight and removed from their board forever.', { cast: p => p.hacks.push('collapse') });
 function turncoat(cs, t) { if (!t || t.turncoat) return; if (!t.psycho) { t.psycho = true; t.atk *= 2; } t.turncoat = true; }
+const kOne = p => p ? (p.tier || 1) * Math.max(1, (G && G.turn) || 1) : 1;
+const topBy = (l, f) => l.length ? l.reduce((a, b) => f(b) > f(a) ? b : a) : null;
 const HACKS = {
-  madness: (cs, side) => { const e = cs.allies(1 - side).filter(x => !x.turncoat); if (e.length) turncoat(cs, e.reduce((a, b) => b.atk > a.atk ? b : a)); },
-  glitch: (cs, side) => { const e = cs.allies(1 - side); if (e.length) { const t = e.reduce((a, b) => b.atk > a.atk ? b : a); t.atk = Math.min(t.atk, 1); } },
-  malfunction: (cs, side) => cs.allies(1 - side).forEach(t => t.ware && t.ware.length && cs.damage(t, 4, null)),
-  overheat: (cs, side) => cs.allies(1 - side).forEach(t => cs.damage(t, 2, null)),
-  tower: (cs, side) => { const n = (cs.sides[side].p.tier || 1) + 3; cs.allies(1 - side).forEach(t => cs.damage(t, n, null)); },
-  burnout: (cs, side) => { const e = cs.allies(1 - side); if (e.length) cs.damage(e.reduce((a, b) => b.atk > a.atk ? b : a), 8, null); },
+  ping: (cs, side) => cs.allies(1 - side).forEach(t => { t.stealth = false; }),
+  optics: (cs, side) => cs.allies(1 - side).slice(0, 2).forEach(t => { t.blind = true; }),
+  shortc: (cs, side) => { const t = topBy(cs.allies(1 - side), x => (x.ware || []).length); if (t) { t.ware = []; t.tware = []; cs.damage(t, 3 * kOne(cs.sides[side].p), null); } },
+  spike: (cs, side) => { const t = randOf(cs.allies(1 - side)); if (t) { cs.permFx(t, 'hum', -1); cs.damage(t, 2 * kOne(cs.sides[side].p), null); } },
+  wipe: (cs, side) => { const t = cs.allies(1 - side)[0]; if (t) silence(t); },
+  glitch: (cs, side) => { const t = topBy(cs.allies(1 - side), x => x.atk); if (t) t.atk = Math.min(t.atk, 1); },
+  contagion: (cs, side) => { const t = randOf(cs.allies(1 - side)); if (t) { t.infect = 2 * kOne(cs.sides[side].p); cs.damage(t, t.infect, null); } },
+  malfunction: (cs, side) => { const n = 2 * kOne(cs.sides[side].p); cs.allies(1 - side).forEach(t => { if ((t.ware || []).length) { t.ware = []; t.tware = []; cs.damage(t, n, null); } }); },
+  overheat: (cs, side) => { const n = kOne(cs.sides[side].p); cs.allies(1 - side).forEach(t => { t.burn = (t.burn || 0) + n; }); },
+  sonic: (cs, side) => cs.allies(1 - side).forEach(t => { t.shield = false; t.taunt = false; }),
+  madness: (cs, side) => { const e = cs.allies(1 - side).filter(x => !x.turncoat); if (e.length) turncoat(cs, topBy(e, x => x.atk)); },
+  overload: (cs, side) => cs.allies(1 - side).forEach(t => { if ((t.ware || []).length) cs.permFx(t, 'hum', -2); }),
+  burnout: (cs, side) => { const t = topBy(cs.allies(1 - side), x => x.atk); if (t) { t.noDR = true; cs.damage(t, 4 * kOne(cs.sides[side].p), null); } },
+  reset: (cs, side) => { cs.sides[1 - side].noDR = true; cs.allies(1 - side).forEach(t => { t.reborn = false; }); },
+  grenade: (cs, side) => { const e = cs.allies(1 - side); const t = topBy(e, x => x.hp); if (!t) return; const i = e.indexOf(t); const n = 4 * kOne(cs.sides[side].p); [e[i - 1], t, e[i + 1]].forEach(x => x && cs.damage(x, n, null)); },
+  suicide: (cs, side) => { const t = topBy(cs.allies(1 - side), x => x.atk); if (t) { t.shield = false; t.hp = 0; } },
+  blackwall: (cs, side) => { cs.allies(1 - side).slice().sort((a, b) => (b.atk + b.hp) - (a.atk + a.hp)).slice(0, 2).forEach(t => cs.defect(t, side)); },
+  tower: (cs, side) => { const n = 2 * kOne(cs.sides[side].p); cs.allies(1 - side).forEach(t => cs.damage(t, n, null)); },
+  collapse: (cs, side) => { const t = topBy(cs.allies(1 - side), x => x.atk); if (t) { cs.permFx(t, 'erase'); t.shield = false; t.reborn = false; t.noDR = true; t.hp = 0; } },
 };
+function silence(t) { t.silenced = true; for (const k of RKW.concat(['taunt', 'stealth', 'shield', 'reborn', 'windfury', 'venom', 'first', 'cleave', 'smash'])) t[k] = false; t.ware = []; t.tware = []; }
 
 // ---------------- PERKS (hero trinkets, offered turn 6 and 9) ----------------
 const PERKS = {}; const PERK_LIST = [];
 function P(id, name, greater, cost, text, o) { const t = Object.assign({ id, name, greater, cost, text }, o); PERKS[id] = t; PERK_LIST.push(t); }
-P('pk_cred', 'Street Cred', false, 3, 'Your Tavern offers 1 more minion.');
-P('pk_blade', 'Bladerunner', false, 2, 'Start of Combat: Give your left-most minion +4 Attack.', { soc: (cs, side) => { const a = cs.allies(side)[0]; if (a) cs.buff(a, 4, 0); } });
-P('pk_jugg', 'Juggernaut', false, 2, 'Start of Combat: Give your Bodyguard minions +2/+2.', { soc: (cs, side) => cs.allies(side).forEach(x => x.taunt && cs.buff(x, 2, 2)) });
-P('pk_painkiller', 'Painkiller', false, 0, 'Gain 6 Armor.', { acquire: p => { p.armor += 6; } });
-P('pk_contacts', 'Fixer Contacts', false, 2, 'Your first Refresh each turn costs 0.', { sot: p => { p.freeRefresh += 1; } });
-P('pk_deadeye', 'Deadeye', false, 2, 'Start of Combat: Deal 3 damage to two random enemy minions.', { soc: (cs, side) => shuffle(cs.allies(1 - side)).slice(0, 2).forEach(t => cs.damage(t, 3, null)) });
-P('pk_dealer', 'Ripperdoc Discount', false, 1, 'Your Cyberware costs (1) less €$.');
-P('pk_stash', 'Eddie Stash', false, 1, 'Gain 1 extra €$ at the start of your next 3 turns.', { acquire: p => { p.stash = 3; }, sot: p => { if (p.stash > 0) { p.stash--; p.gold++; } } });
-P('pk_tolerance', 'Chrome Tolerance', false, 2, 'Your minions have +2 Humanity.');
-P('pk_ram', 'Upgraded Deck', false, 1, 'You have +2 maximum RAM.');
-P('pk_adrenaline', 'Adrenaline Rush', true, 4, 'Start of Combat: Give your minions +2 Attack.', { soc: (cs, side) => cs.allies(side).forEach(x => cs.buff(x, 2, 0)) });
-P('pk_secondwind', 'Second Wind', true, 3, 'The first time your hero would die, survive with 10 Health.');
-P('pk_bulletproof', 'Bulletproof', true, 4, 'Start of Combat: Give your Barrier minions +4 Attack.', { soc: (cs, side) => cs.allies(side).forEach(x => x.shield && cs.buff(x, 4, 0)) });
-P('pk_edgerunner', 'Edgerunner', true, 5, 'Start of Combat: Give your left-most minion Overclock and +5 Attack.', { soc: (cs, side) => { const a = cs.allies(side)[0]; if (a) { a.windfury = true; cs.buff(a, 5, 0); } } });
-P('pk_regen', 'Regeneration', true, 3, 'End of Turn: Give your minions +0/+1.', { eot: p => p.board.forEach(x => buff(x, 0, 1)) });
-P('pk_toxic', 'Toxicology', true, 4, 'Start of Combat: Give two random friendly minions Neurotoxin.', { soc: (cs, side) => shuffle(cs.allies(side)).slice(0, 2).forEach(x => x.venom = true) });
-P('pk_ghost', 'Ghost Protocol', true, 5, 'Start of Combat: Give your 3 left-most minions Barrier.', { soc: (cs, side) => cs.allies(side).slice(0, 3).forEach(x => x.shield = true) });
-P('pk_deck', 'Overclocked Deck', true, 3, 'Your Quickhacks cost (1) less RAM.');
+// k = Tavern Tier x turn (one-time and combat effects), t = Tavern Tier (repeating permanent gains)
+const kSide = (cs, side) => kOne(cs.sides[side].p);
+P('pk_cred', 'Street Cred', false, 3, (k, t) => `Your Tavern offers 1 more minion, and minions in your Tavern have +${t}/+${t}.`, { acquire: p => { p.tavBuff.a += p.tier; p.tavBuff.h += p.tier; buffShop(p, p.tier, p.tier); } });
+P('pk_blade', 'Bladerunner', false, 2, k => `Start of Combat: Give your left-most minion Kerenzikov and +${4 * k} Attack.`, { soc: (cs, side) => { const a = cs.allies(side)[0]; if (a) { a.first = true; cs.buff(a, 4 * kSide(cs, side), 0); } } });
+P('pk_jugg', 'Juggernaut', false, 2, k => `Start of Combat: Give your Bodyguard minions +${3 * k}/+${3 * k}.`, { soc: (cs, side) => { const n = 3 * kSide(cs, side); cs.allies(side).forEach(x => x.taunt && cs.buff(x, n, n)); } });
+P('pk_painkiller', 'Painkiller', false, 0, 'Gain 12 Armor.', { acquire: p => { p.armor += 12; } });
+P('pk_contacts', 'Fixer Contacts', false, 2, 'Your first 2 Refreshes each turn cost 0.', { sot: p => { p.freeRefresh += 2; } });
+P('pk_deadeye', 'Deadeye', false, 2, k => `Start of Combat: Deal ${3 * k} damage to three random enemy minions.`, { soc: (cs, side) => { const n = 3 * kSide(cs, side); shuffle(cs.allies(1 - side)).slice(0, 3).forEach(t => cs.damage(t, n, null)); } });
+P('pk_dealer', 'Ripperdoc Discount', false, 1, 'Your Cyberware costs (1) less €$ and uses 1 less Humanity.');
+P('pk_stash', 'Eddie Stash', false, 1, 'Gain 2 extra €$ at the start of your next 4 turns.', { acquire: p => { p.stash = 4; }, sot: p => { if (p.stash > 0) { p.stash--; p.gold += 2; } } });
+P('pk_tolerance', 'Chrome Tolerance', false, 2, 'Your minions have +3 Humanity.');
+P('pk_ram', 'Upgraded Deck', false, 1, 'You have +3 maximum RAM.');
+P('pk_adrenaline', 'Adrenaline Rush', true, 4, k => `Start of Combat: Give your minions +${2 * k} Attack.`, { soc: (cs, side) => { const n = 2 * kSide(cs, side); cs.allies(side).forEach(x => cs.buff(x, n, 0)); } });
+P('pk_secondwind', 'Second Wind', true, 3, 'The first time your hero would die, survive with 15 Health.');
+P('pk_bulletproof', 'Bulletproof', true, 4, k => `Start of Combat: Give your Barrier minions +${4 * k}/+${2 * k}.`, { soc: (cs, side) => { const n = 4 * kSide(cs, side); cs.allies(side).forEach(x => x.shield && cs.buff(x, n, n / 2)); } });
+P('pk_edgerunner', 'Edgerunner', true, 5, k => `Start of Combat: Give your left-most minion Overclock and +${5 * k} Attack.`, { soc: (cs, side) => { const a = cs.allies(side)[0]; if (a) { a.windfury = true; cs.buff(a, 5 * kSide(cs, side), 0); } } });
+P('pk_regen', 'Regeneration', true, 3, (k, t) => `End of Turn: Give your minions +${t}/+${2 * t}.`, { eot: p => p.board.forEach(x => buff(x, p.tier, 2 * p.tier)) });
+P('pk_toxic', 'Toxicology', true, 4, 'Start of Combat: Give three random friendly minions Neurotoxin.', { soc: (cs, side) => shuffle(cs.allies(side)).slice(0, 3).forEach(x => x.venom = true) });
+P('pk_ghost', 'Ghost Protocol', true, 5, 'Start of Combat: Give your 3 left-most minions Barrier and Optical Camo.', { soc: (cs, side) => cs.allies(side).slice(0, 3).forEach(x => { x.shield = true; x.stealth = true; }) });
+P('pk_deck', 'Overclocked Deck', true, 3, 'Your Quickhacks cost (1) less RAM, and you have +2 maximum RAM.');
 P('pk_tactician', 'Tactician', true, 5, 'Your minions\' Start of Combat effects trigger twice.');
-P('pk_legend', 'Afterlife Legend', true, 5, 'Make your left-most minion Golden.', { acquire: p => { if (p.board[0]) makeGolden(p.board[0]); } });
+P('pk_legend', 'Afterlife Legend', true, 5, 'Make your two left-most minions Golden.', { acquire: p => { p.board.slice(0, 2).forEach(x => { if (!x.golden) makeGolden(x); }); } });
 // faction perks: each helps one faction and shows up more often when you play it
 P('pk_mil1', 'Militech Requisition', false, 2, 'Your Cyberware costs (1) less €$, and every install counts as 2 Arsenal.', { tribe: 'MIL' });
-P('pk_mil2', 'Militech Black Ops', true, 4, 'Start of Combat: Give your Militech +1/+1 for every 2 Arsenal.', { tribe: 'MIL', soc: (cs, side) => { const n = Math.floor(arsenalOf(cs.sides[side].p) / 2); cs.allies(side).forEach(x => x.tribe === 'MIL' && cs.buff(x, n, n)); } });
-P('pk_mae1', 'Chrome Fever', false, 2, 'After a friendly minion becomes a Cyberpsycho, give it +3/+3.', { tribe: 'MAE' });
+P('pk_mil2', 'Militech Black Ops', true, 4, k => `Start of Combat: Give your Militech +${k}/+${k} for every 2 Arsenal.`, { tribe: 'MIL', soc: (cs, side) => { const n = Math.floor(arsenalOf(cs.sides[side].p) / 2) * kSide(cs, side); cs.allies(side).forEach(x => isTr(x, 'MIL') && cs.buff(x, n, n)); } });
+P('pk_mae1', 'Chrome Fever', false, 2, (k, t) => `After a friendly minion becomes a Cyberpsycho, give it +${3 * t}/+${3 * t}.`, { tribe: 'MAE' });
 P('pk_mae2', 'Maelstrom Broadcast', true, 4, 'Max-Tac never hunts your Cyberpsychos.', { tribe: 'MAE' });
-P('pk_tyg1', 'Bushido', false, 2, 'Gain 3 Honor now. Start of Combat: Your Tyger Claws gain +1 Attack for every 4 Honor.', { tribe: 'TYG', acquire: p => { p.honor = (p.honor || 0) + 3; }, soc: (cs, side) => { const n = Math.floor((cs.sides[side].p.honor || 0) / 4); cs.allies(side).forEach(x => x.tribe === 'TYG' && cs.buff(x, n, 0)); } });
-P('pk_tyg2', 'Blood Oath', true, 4, 'Whenever a friendly Tyger Claws destroys a minion, it gains +2/+2 permanently.', { tribe: 'TYG' });
-P('pk_ald1', 'Open Road', false, 2, 'End of Turn: Give your left-most and right-most minions +1/+1 for each Aldecaldo you control.', { tribe: 'ALD', eot: p => { const n = boardOf(p, 'ALD').length; if (!n || !p.board.length) return; new Set([p.board[0], p.board[p.board.length - 1]]).forEach(x => buff(x, n, n)); } });
+P('pk_tyg1', 'Bushido', false, 2, k => `Gain 3 Honor now. Start of Combat: Your Tyger Claws gain +${k} Attack for every 2 Honor.`, { tribe: 'TYG', acquire: p => { p.honor = (p.honor || 0) + 3; }, soc: (cs, side) => { const n = Math.floor((cs.sides[side].p.honor || 0) / 2) * kSide(cs, side); cs.allies(side).forEach(x => isTr(x, 'TYG') && cs.buff(x, n, 0)); } });
+P('pk_tyg2', 'Blood Oath', true, 4, (k, t) => `Whenever a friendly Tyger Claws destroys a minion, it gains +${2 * t}/+${2 * t} permanently.`, { tribe: 'TYG' });
+P('pk_ald1', 'Open Road', false, 2, (k, t) => `End of Turn: Give your left-most and right-most minions +${t}/+${t} for each Aldecaldo you control.`, { tribe: 'ALD', eot: p => { const n = boardOf(p, 'ALD').length * p.tier; if (!n || !p.board.length) return; new Set([p.board[0], p.board[p.board.length - 1]]).forEach(x => buff(x, n, n)); } });
 P('pk_ald2', 'Nomad Family', true, 4, 'Your Aldecaldos’ End of Turn effects trigger one extra time.', { tribe: 'ALD' });
-P('pk_ara1', 'Corporate Uplink', false, 2, 'Upload +2/+2 to your Engram now. End of Turn: Upload +1/+1.', { tribe: 'ARA', acquire: p => addEngram(p, 2, 2), eot: p => addEngram(p, 1, 1) });
-P('pk_ara2', 'Relic Protocol', true, 5, 'Your Engram bonus is increased by 50%.', { tribe: 'ARA' });
-P('pk_val1', 'Familia Ties', false, 2, 'Minions you play start with 2 Loyalty.', { tribe: 'VAL' });
-P('pk_val2', 'Heywood Pride', true, 4, 'Start of Combat: Your Valentinos gain +1/+1 for each Loyalty they have.', { tribe: 'VAL', soc: (cs, side) => cs.allies(side).forEach(x => x.tribe === 'VAL' && cs.buff(x, x.loy || 0, x.loy || 0)) });
-P('pk_vdb1', 'Netrunner Rig', false, 1, 'You have +3 maximum RAM.', { tribe: 'VDB' });
+P('pk_ara1', 'Corporate Uplink', false, 2, (k, t) => `Copy the minds of your 2 strongest minions into your Engram vault now. End of Turn: every Engram gains +${t}/+${t}.`, { tribe: 'ARA', acquire: p => p.board.slice().sort((a, b) => (b.atk + b.hp) - (a.atk + a.hp)).slice(0, 2).forEach(x => upload(p, x)), eot: p => (p.vault || []).forEach(e => { e.atk += p.tier; e.hp += p.tier; }) });
+P('pk_ara2', 'Relic Protocol', true, 5, 'Start of Combat: Re-embody your two strongest Engrams as constructs that fight for you.', { tribe: 'ARA', soc: (cs, side) => (cs.sides[side].p.vault || []).slice().sort((a, b) => (b.atk + b.hp) - (a.atk + a.hp)).slice(0, 2).forEach(e => cs.embody(side, e, cs.sides[side].b.length)) });
+P('pk_val1', 'Familia Ties', false, 2, 'Minions you play start with 3 Loyalty.', { tribe: 'VAL' });
+P('pk_val2', 'Heywood Pride', true, 4, (k, t) => `Start of Combat: Your Valentinos gain +${t}/+${t} for each Loyalty they have.`, { tribe: 'VAL', soc: (cs, side) => { const t = cs.sides[side].p.tier || 1; cs.allies(side).forEach(x => isTr(x, 'VAL') && cs.buff(x, (x.loy || 0) * t, (x.loy || 0) * t)); } });
+P('pk_vdb1', 'Netrunner Rig', false, 1, 'You have +4 maximum RAM.', { tribe: 'VDB' });
 P('pk_vdb2', 'Voodoo Loa', true, 4, 'Your first Quickhack each turn is cast twice.', { tribe: 'VDB' });
-P('pk_ani1', 'Protein Shake', false, 2, 'End of Turn: Give your Animals +0/+2.', { tribe: 'ANI', eot: p => boardOf(p, 'ANI').forEach(x => buff(x, 0, 2)) });
-P('pk_ani2', 'Juice Overdose', true, 4, 'Start of Combat: Your Animals gain Attack equal to a third of their Health.', { tribe: 'ANI', soc: (cs, side) => cs.allies(side).forEach(x => x.tribe === 'ANI' && cs.buff(x, Math.ceil(x.hp / 3), 0)) });
-P('pk_bio1', 'Growth Medium', false, 2, 'Gain 2 Mutation now. Every other End of Turn: Gain 1 Mutation.', { tribe: 'BIO', acquire: p => { p.mutation = (p.mutation || 0) + 2; }, eot: p => { if (G.turn % 2 === 0) p.mutation = (p.mutation || 0) + 1; } });
-P('pk_bio2', 'Clone Army', true, 4, 'Start of Combat: Summon 3 Clones.', { tribe: 'BIO', soc: (cs, side) => { for (let i = 0; i < 3; i++) cs.spawnClone(side, cs.sides[side].b.length); } });
-P('pk_mox1', 'Lizzie’s Tab', false, 2, 'End of Turn: Give a random minion of each faction you control +1/+1.', { tribe: 'MOX', eot: p => { const by = {}; p.board.forEach(x => { if (x.tribe) (by[x.tribe] = by[x.tribe] || []).push(x); }); for (const t in by) buff(pick(by[t]), 1, 1); } });
-P('pk_mox2', 'Sisters in Arms', true, 4, 'Whenever a friendly minion dies in combat, give a random friendly minion of a different faction +2/+2.', { tribe: 'MOX' });
+P('pk_ani1', 'Protein Shake', false, 2, (k, t) => `End of Turn: Give your Animals +0/+${3 * t}.`, { tribe: 'ANI', eot: p => boardOf(p, 'ANI').forEach(x => buff(x, 0, 3 * p.tier)) });
+P('pk_ani2', 'Juice Overdose', true, 4, 'Start of Combat: Your Animals gain Attack equal to half their Health.', { tribe: 'ANI', soc: (cs, side) => cs.allies(side).forEach(x => isTr(x, 'ANI') && cs.buff(x, Math.ceil(x.hp / 2), 0)) });
+P('pk_bio1', 'Growth Medium', false, 2, 'Gain 3 Mutation now. Every other End of Turn: Gain 1 Mutation.', { tribe: 'BIO', acquire: p => { p.mutation = (p.mutation || 0) + 3; }, eot: p => { if (G.turn % 2 === 0) p.mutation = (p.mutation || 0) + 1; } });
+P('pk_bio2', 'Clone Army', true, 4, 'Start of Combat: Summon 4 Clones.', { tribe: 'BIO', soc: (cs, side) => { for (let i = 0; i < 4; i++) cs.spawnClone(side, cs.sides[side].b.length); } });
+P('pk_mox1', 'Lizzie’s Tab', false, 2, (k, t) => `End of Turn: Give a random minion of each faction you control +${2 * t}/+${2 * t}.`, { tribe: 'MOX', eot: p => { const by = {}; p.board.forEach(x => { if (x.tribe) (by[x.tribe] = by[x.tribe] || []).push(x); }); for (const tr in by) buff(pick(by[tr]), 2 * p.tier, 2 * p.tier); } });
+P('pk_mox2', 'Sisters in Arms', true, 4, k => `Whenever a friendly minion dies in combat, give a random friendly minion of a different faction +${2 * k}/+${2 * k}.`, { tribe: 'MOX' });
 
 // ---------------- HEROES ----------------
+// scaling kind per card: permanent repeating growth scales with Tier only
+const REP_HOOKS = ['eot', 'sot', 'onBuyFriendly', 'onPlayFriendly', 'onSellFriendly', 'onSpell', 'onInstall', 'onPsycho', 'onMaxTac'];
+for (const c of Object.values(CARDS)) {
+  const src = Object.values(c).filter(v => typeof v === 'function' && v !== c.text).map(f => f.toString()).join(' ');
+  c.sk = REP_HOOKS.some(h => c[h]) || /perm\(|engram|Engram|tavBuff/.test(src) ? 'rep' : 'one';
+}
 // faction stat boosts (by win-rate gap)
-const TRIBE_STAT_BOOST = { MOX: .90, VAL: .85, ALD: .75, MAE: .45, VDB: .45, MIL: .60 };
+const TRIBE_STAT_BOOST = { MOX: 0, VAL: .95, ALD: 2.3, MAE: .6, VDB: .3, MIL: .1, TYG: 1.3, ARA: 2.2, ANI: 2.6, BIO: 1.3 };
 for (const c of Object.values(CARDS)) { const k = TRIBE_STAT_BOOST[c.tribe]; if (k && !c.token) { c.atk = Math.ceil(c.atk * (1 + k)); c.hp = Math.ceil(c.hp * (1 + k)); } }
 const HEROES = {}; const HERO_LIST = [];
 function Hh(id, name, armor, power) { const h = { id, name, armor, power }; HEROES[id] = h; HERO_LIST.push(h); }
-Hh('johnny', 'Johnny Silverhand', 11, { name: 'Burn the Tower', cost: 1, text: 'Next combat: Deal damage equal to your Tavern Tier +3 to all enemy minions. Usable every other turn.', use: p => { p.hdata.cd = 2; p.hacks.push('tower'); } });
+Hh('johnny', 'Johnny Silverhand', 11, { name: 'Burn the Tower', cost: 1, text: 'Next combat: Deal 2 × Tavern Tier × turn damage to all enemy minions. Usable every other turn.', use: p => { p.hdata.cd = 2; p.hacks.push('tower'); } });
 Hh('v', 'V', 10, { name: 'The Relic', passive: true, text: 'At the start of every other turn, Discover a minion of your Tavern Tier. The Relic is killing you: each time, take 4 damage.', sot: p => { if (G.turn % 2 === 0) { discoverMinion(p, p.tier); selfDamage(p, 4); } } });
 Hh('judy', 'Judy Alvarez', 8, { name: 'Braindance Recording', cost: 1, target: 'board', text: 'Record a friendly minion as it is now. At the start of your next combat, a copy of it with +5/+5 and Barrier is summoned.', use: (p, t) => { p.bd = Object.assign({}, t, { ware: (t.ware || []).slice(), atk: t.atk + 5, hp: t.hp + 5, shield: true }); } });
 Hh('panam', 'Panam Palmer', 9, { name: 'Nomad Convoy', passive: true, text: 'Start of Combat: Summon a Mackinaw with Bodyguard and stats equal to four times your Tavern Tier.',
@@ -643,7 +700,7 @@ Hh('smasher', 'Adam Smasher', 6, { name: 'Full Borg', passive: true, text: 'At t
   soc: (cs, side) => cs.allies(side).forEach(x => { const n = (x.ware || []).length; if (n) cs.buff(x, 3 * n, 3 * n); }) });
 Hh('yorinobu', 'Yorinobu Arasaka', 7, { name: 'Hostile Takeover', cost: 1, text: 'Get a copy of a random minion from your next opponent\'s board. Usable every third turn.',
   use: p => { p.hdata.cd = 3; if (p.hand.length >= HAND_MAX) return; const o = G.players.find(x => x.id === p.nextOpp); const b = o ? o.board : ((G.pairs || []).flat().find(x => x.isGhost) || {}).board || []; const t = randOf(b.filter(x => CARDS[x.id] && !CARDS[x.id].token)); if (t) { const c = Object.assign({}, t, { uid: UID++, ware: (t.ware || []).slice(), attached: [], noPool: true, loy: 0 }); giveCard(p, c); } } });
-Hh('saburo', 'Saburo Arasaka', 7, { name: 'Soul Engram', passive: true, text: 'Your other minions get half your Engram bonus. Every other turn, upload +1/+1 to your Engram.', eot: p => { if (G.turn % 2 === 0) addEngram(p, 1, 1); } });
+Hh('saburo', 'Saburo Arasaka', 7, { name: 'Soul Engram', passive: true, text: 'Every other End of Turn: copy the mind of your strongest minion into your Engram vault.', eot: p => { if (G.turn % 2 === 0) upload(p, strongest(p.board)); } });
 Hh('alt', 'Alt Cunningham', 8, { name: 'Beyond the Blackwall', cost: 1, target: 'board', tfilter: t => !t.reborn, text: 'Turn a friendly minion into a digital ghost: it gains Reboot, Optical Camo and +3/+3.', use: (p, t) => { t.reborn = true; t.stealth = true; buff(t, 3, 3); } });
 Hh('kerry', 'Kerry Eurodyne', 8, { name: 'Encore', cost: 1, text: 'Give three random friendly minions +1/+1 for each different faction you control.',
   use: p => { const n = new Set(p.board.map(x => x.tribe || 'N')).size; shuffle(p.board.slice()).slice(0, 3).forEach(t => buff(t, n, n)); } });
@@ -754,7 +811,7 @@ function actPlay(p, hIdx, pos, target) {
   pos = Math.max(0, Math.min(pos == null ? p.board.length : pos, p.board.length));
   p.board.splice(pos, 0, m);
   absorbEngram(p, m);
-  if (hasPerk(p, 'pk_val1')) m.loy = Math.max(m.loy || 0, 2);
+  if (hasPerk(p, 'pk_val1')) m.loy = Math.max(m.loy || 0, 3);
   if (c.bc) { const n = bcMult(p); for (let i = 0; i < n; i++) { if (target && !p.board.includes(target)) target = null; c.bc(p, m, target); } }
   for (const x of p.board.slice()) { if (x === m) continue; const cx = CARDS[x.id]; if (cx.onPlayFriendly) cx.onPlayFriendly(p, x, m); }
   for (const pk of p.perks) if (PERKS[pk.id].onPlay) PERKS[pk.id].onPlay(p, m);
@@ -805,7 +862,7 @@ function actHeroPower(p, target) {
 function actPickPerk(p, id) {
   const im = PERKS[id]; if (p.gold < im.cost) return false;
   p.gold -= im.cost; p.spent += im.cost; p.perks.push({ id }); if (im.acquire) im.acquire(p);
-  if (id === 'pk_ram') { p.ramCap = ramMax(p); p.ram += 2; }
+  if (id === 'pk_ram' || id === 'pk_deck' || id === 'pk_vdb1') { const before = p.ramCap; p.ramCap = ramMax(p); p.ram += Math.max(0, p.ramCap - before); }
   return true;
 }
 function actReorder(p, from, to) {
@@ -838,10 +895,10 @@ function checkTriple(p) {
 // ---------------- COMBAT ----------------
 function psyMult(p, m) { return (m && m.tribe === 'MAE' ? 4 : 2) + cntId(p.board || [], 'mae_frenzy'); }
 function snap(m) { return { uid: m.uid, id: m.id, atk: m.atk, hp: m.hp, golden: m.golden, taunt: !!m.taunt, shield: !!m.shield, reborn: !!m.reborn, venom: !!m.venom, windfury: !!m.windfury, cleave: !!m.cleave, stealth: !!m.stealth, first: !!m.first, smash: !!m.smash, psycho: !!m.psycho, ware: (m.ware || []).slice(), humMod: m.humMod || 0, loy: m.loy || 0 }; }
-function hooksOf(m) { const l = [CARDS[m.id]]; for (const w of (m.ware || [])) l.push(WARE[w]); for (const w of (m.tware || [])) l.push(WARE[w]); return l; }
+function hooksOf(m) { if (m.silenced) return []; const l = [CARDS[m.id]]; if (m.relic && CARDS[m.relic]) l.push(CARDS[m.relic]); for (const w of (m.ware || [])) l.push(WARE[w]); for (const w of (m.tware || [])) l.push(WARE[w]); return l; }
 class Combat {
   constructor(pa, pb, record) {
-    this.record = record; this.frames = []; this.hits = []; this.permLog = []; this.engramLog = [0, 0].map(() => ({ a: 0, h: 0 }));
+    this.record = record; this.frames = []; this.hits = []; this.permLog = []; this.fxLog = []; this.engramLog = [0, 0].map(() => ({ a: 0, h: 0 }));
     this.gain = [0, 1].map(() => ({ honor: 0, mut: 0 }));
     this.sides = [pa, pb].map((p, i) => ({ p, i, b: p.board.map(m => this.clone(m, i, p)), ptr: 0, deaths: 0, noFF: false }));
   }
@@ -857,8 +914,12 @@ class Combat {
   adj(m, side) { const b = this.allies(side); const i = b.indexOf(m); return [b[i - 1], b[i + 1]].filter(Boolean); }
   buff(m, a, h) { a = Math.ceil(a); h = Math.ceil(h); m.atk = Math.max(0, m.atk + a); m.hp += h; if (h > 0 && m.mx != null) m.mx += h; if (a > 0 && m.ma != null) m.ma += a; }
   perm(m, a, h) { this.buff(m, a, h); if (m.src) this.permLog.push([m.side, m.src, a, h]); }
+  permFx(m, type, v) { if (m.src) this.fxLog.push([m.home != null ? m.home : m.side, m.src, type, v]); }
+  defect(t, side) { const from = this.sides[t.side].b; const i = from.indexOf(t); if (i < 0 || this.sides[side].b.length >= COMBAT_CAP) return; from.splice(i, 1); if (t.home == null) t.home = t.side; t.side = side; t.turncoat = false; this.sides[side].b.push(t); }
   engram(side, a, h) { this.engramLog[side].a += a; this.engramLog[side].h += h; }
-  tempWare(m, wid) { const w = WARE[wid]; this.buff(m, w.atk || 0, w.hp || 0); for (const k of (w.kw || [])) m[k] = true; m.tware.push(wid); }
+  upload(side, m) { if (!m || !CARDS[m.id] || CARDS[m.id].token) return; (this.vaultLog || (this.vaultLog = [[], []]))[side].push(mind(m)); }
+  embody(side, e, pos) { if (!e || (this._emb = (this._emb || 0) + 1) > 40) return null; const c = this.summon(side, e.id, pos, e.golden); if (c) { c.atk = e.atk; c.hp = e.hp; c.ma = e.atk; c.mx = e.hp; c.construct = true; } return c; }
+  tempWare(m, wid) { const w = WARE[wid]; const k = kOne(this.sides[m.side] && this.sides[m.side].p); this.buff(m, (w.atk || 0) * k, (w.hp || 0) * k); for (const k of (w.kw || [])) m[k] = true; m.tware.push(wid); }
   hit(m, n, kind) { if (this.record) this.hits.push({ uid: m.uid, n, kind }); }
   frame(type, extra) {
     if (!this.record) return;
@@ -869,7 +930,7 @@ class Combat {
   spawnClone(side, pos) {
     const p = this.sides[side].p; const st = cloneStat(p); const m = this.summon(side, 'tok_clone', pos, false); if (!m) return null;
     m.atk = st; m.hp = st;
-    const k = this.allies(side).reduce((s, x) => s + (x.id === 'bio_splicer' ? gm(x) : 0), 0); if (k && !p.isGhost && p.splTurn !== G.turn && !(this.splDone || (this.splDone = {}))[side]) { this.splDone[side] = true; this.gain[side].mut += k; }
+    const k = this.allies(side).reduce((s, x) => s + (x.id === 'bio_splicer' ? gc(x) : 0), 0); if (k && !p.isGhost && p.splTurn !== G.turn && !(this.splDone || (this.splDone = {}))[side]) { this.splDone[side] = true; this.gain[side].mut += k; }
     return m;
   }
   summon(side, id, pos, golden) {
@@ -886,14 +947,17 @@ class Combat {
       for (const x of this.sides[t.side].b.slice()) { if (x.dead) continue; this.call(x, 'onShieldLostC', t.side, t); }
       return 0;
     }
+    if (t.neofiber && src && src.side != null) { t._nf = (t._nf || 0) + 1; if (t._nf % 3 === 0) { this.hit(t, 0, 'miss'); return 0; } }
+    if (t.subderm) n = Math.ceil(n / 2);
     const before = t.hp;
     t.hp -= n; this.hit(t, n, 'dmg');
+    if (t.hp <= 0 && t.biomon && !t._bio) { t._bio = true; t.hp = t.mx || Math.max(1, t.hp + n); }
     if (src && src.venom && t.hp > 0) { t.hp = 0; src.venom = false; }
     else if (src && src.venom) src.venom = false;
     if (t.hp > 0) { this.call(t, 'onDamagedC', t.side); for (const x of this.sides[t.side].b) if (x !== t && !x.dead && x.hp > 0 && CARDS[x.id].onFriendlyDamagedC) CARDS[x.id].onFriendlyDamagedC(this, x, t.side, t); }
     else if (src && src.side != null && src.side !== t.side && src.hp > 0 && !t._killed) {
       t._killed = true;
-      if (src.tribe === 'TYG') { this.gain[src.side].honor += 1 + cntId(this.allies(src.side), 'tyg_wraith'); if (hasPerk(this.sides[src.side].p, 'pk_tyg2')) this.perm(src, 2, 2); }
+      if (src.tribe === 'TYG') { this.gain[src.side].honor += 1 + cntId(this.allies(src.side), 'tyg_wraith'); if (hasPerk(this.sides[src.side].p, 'pk_tyg2')) { const t2 = 2 * (this.sides[src.side].p.tier || 1); this.perm(src, t2, t2); } }
       this.call(src, 'onKillC', src.side, t);
       this.call(src, 'onKillFriendlyC', src.side, src, t);
       for (const x of this.allies(src.side)) if (x !== src) this.call(x, 'onKillFriendlyC', src.side, src, t);
@@ -911,10 +975,13 @@ class Combat {
           if (pos < 0) break;
           any = true;
           const m = s.b[pos]; m.dead = true; s.b.splice(pos, 1); s.deaths++;
-          for (const h of hooksOf(m)) if (h.dr) h.dr(this, m, side, pos);
-          if (m.reborn) { const r = this.summon(side, m.id, pos, m.golden); if (r) { r.hp = 1; r.reborn = false; } }
+          if (!m.noDR && !s.noDR) for (const h of hooksOf(m)) if (h.dr) h.dr(this, m, side, pos);
+          if (isTr(m, 'ARA') && !m.construct && !s.p.isGhost) this.upload(side, m);
+          if (isTr(m, 'VAL')) { const av = topBy(this.allies(side).filter(x => isTr(x, 'VAL')), x => (x.loy || 0) * 1000 + x.atk); if (av) this.buff(av, Math.max(1, m.ma || m.atk || 0), 0); }
+          if (m.infect && (this._inf = (this._inf || 0) + 1) <= 12) { const nb = [s.b[pos - 1], s.b[pos]].filter(x => x && !x.dead && x.hp > 0); const t = randOf(nb); if (t) { t.infect = m.infect; this.damage(t, m.infect, null); } }
+          if (m.reborn) { const r = this.summon(side, m.id, pos, m.golden); if (r) { if (m.fullreboot) { r.atk = m.ma || m.atk; r.hp = m.mx || 1; r.ware = (m.ware || []).slice(); r.fullreboot = false; } else r.hp = 1; r.reborn = false; } }
           for (const x of s.b.slice()) { if (x.dead || x.hp <= 0) continue; this.call(x, 'onFriendlyDeathC', side, m); }
-          if (!s.p.isGhost && hasPerk(s.p, 'pk_mox2')) { const t = randOf(this.allies(side).filter(x => x.tribe !== m.tribe)); if (t) this.buff(t, 2, 2); }
+          if (!s.p.isGhost && hasPerk(s.p, 'pk_mox2')) { const t = randOf(this.allies(side).filter(x => x.tribe !== m.tribe)); if (t) { const n = 2 * kOne(s.p); this.buff(t, n, n); } }
         }
       }
       if (!any) break;
@@ -950,14 +1017,18 @@ class Combat {
       if (friends.length && Math.random() < ff) return pick(friends);
       return pick(enemies);
     }
+    if (a.kiroshi) { const mn = Math.min(...enemies.map(x => x.hp)); return pick(enemies.filter(x => x.hp === mn)); }
     if (CARDS[a.id].attackLowest) { const mn = Math.min(...enemies.map(x => x.atk)); return pick(enemies.filter(x => x.atk === mn)); }
     const vis = enemies.filter(x => !x.stealth); const base = vis.length ? vis : enemies;
     const taunts = base.filter(x => x.taunt);
     return pick(taunts.length ? taunts : base);
   }
-  doAttack(a, side) {
-    const t = this.pickTarget(a, side);
+  doAttack(a, side, forced) {
+    const t = forced && !forced.dead && forced.hp > 0 ? forced : this.pickTarget(a, side);
     if (!t) return;
+    if (a.blind && Math.random() < .5) { if (this.record) this.frame('atk', { a: a.uid, t: t.uid, ff: false, miss: true }); a.stealth = false; this.frame('state'); return; }
+    if (a.burn) this.damage(a, a.burn, null);
+    if (a.hp <= 0) { this.resolveDeaths(); this.frame('state'); return; }
     const ff = t.side === side;
     if (this.record) this.frame('atk', { a: a.uid, t: t.uid, ff });
     a.stealth = false;
@@ -978,7 +1049,7 @@ class Combat {
       this.damage(a, dt, t);
     }
     if (a.smash && excess > 0 && !ff) { const nx = this.allies(1 - side).filter(x => x !== t && x.hp > 0); const i = tb.indexOf(t); const next = tb.slice(i + 1).find(x => !x.dead && x.hp > 0) || nx[0]; if (next) this.damage(next, excess, a); }
-    if (a.hp > 0 && !a.dead) this.call(a, 'afterAttackC', side);
+    if (a.hp > 0 && !a.dead) { if (a.bloodpump) a.hp = Math.max(a.hp, a.mx || a.hp); if (a.recloak && t.hp <= 0) a.stealth = true; this.call(a, 'afterAttackC', side); }
     for (const x of this.allies(side)) if (x !== a) this.call(x, 'onFriendlyAttackC', side, a);
     this.resolveDeaths();
     this.frame('state');
@@ -987,7 +1058,8 @@ class Combat {
       if (!m.dead && m.hp > 0 && this.allies(1 - s2).length) this.doAttack(m, s2);
     }
   }
-  run() {
+  run() { const prevCS = CUR_CS; CUR_CS = this; try { return this.run0(); } finally { CUR_CS = prevCS; } }
+  run0() {
     const sa = this.sides[0], sb = this.sides[1];
     let first = sa.b.length > sb.b.length ? 0 : sb.b.length > sa.b.length ? 1 : rnd(2);
     this.frame('state');
@@ -1008,6 +1080,13 @@ class Combat {
       }
     }
     this.resolveDeaths();
+    // Tyger Claws duel: their strongest Claw challenges the enemy's strongest minion and strikes first
+    for (const side of order) {
+      if (this.sides[side].p.isGhost) continue;
+      const champ = topBy(this.allies(side).filter(x => isTr(x, 'TYG') && x.atk > 0), x => x.atk);
+      const foe = topBy(this.allies(1 - side), x => x.atk);
+      if (champ && foe) this.doAttack(champ, side, foe);
+    }
     this.frame('state');
     let turn = first, guard = 0;
     while (this.allies(0).length && this.allies(1).length && guard++ < 3000) {
@@ -1020,7 +1099,7 @@ class Combat {
     if (la.length && !lb.length) winner = 0; else if (lb.length && !la.length) winner = 1;
     let dmg = 0;
     if (winner >= 0) { const w = this.sides[winner]; dmg = w.p.tier + this.allies(winner).reduce((s, x) => s + CARDS[x.id].tier, 0); }
-    return { winner, dmg, frames: this.frames, permLog: this.permLog, engramLog: this.engramLog, gain: this.gain };
+    return { winner, dmg, frames: this.frames, permLog: this.permLog, fxLog: this.fxLog, vaultLog: this.vaultLog, engramLog: this.engramLog, gain: this.gain };
   }
 }
 
@@ -1034,7 +1113,7 @@ function newGame(humanHeroId, humanName, aiHeroIds, tribes, strategies, diff) {
   heroes.forEach((hid, i) => {
     const h = HEROES[hid];
     G.players.push({ id: i, name: i === 0 ? (humanName || 'You') : h.name, isAI: i !== 0, hero: h, hp: 40, armor: h.armor, tier: 1, upCost: UPC[2], gold: 0,
-      ram: 0, ramCap: 3, ramBonus: 0, hacks: [], engram: { a: 0, h: 0 },
+      ram: 0, ramCap: 3, ramBonus: 0, hacks: [], engram: { a: 0, h: 0 }, vault: [],
       board: [], hand: [], shop: [], shopSpells: [], shopWares: [], frozen: false, hpUsed: 0, perks: [], tavBuff: { a: 0, h: 0 }, freeRefresh: 0, nextGold: 0,
       spent: 0, arsenal: 0, honor: 0, mutation: 0, hacksCast: 0, ramCarry: 0, maxtacLost: 0, alive: true, lastOpp: null, nextOpp: null, placement: 0, pending: [], hdata: {}, triples: 0, lastSeen: [], heartUsed: false, lastResult: null, stash: 0,
       ai: Object.assign({ lvlBias: rnd(3) - 1, fav: null }, STRATS[(strategies && strategies[i]) || pick(Object.keys(STRATS))]) });
@@ -1070,6 +1149,7 @@ function startTurnFor(p) {
     p.spent = 0; p.loaUsed = false;
     if (G.turn > 1) maxTacSweep(p);
     { const ch = cntId(p.board, 'val_chapel'); for (const x of p.board) x.loy = (x.loy || 0) + 1 + ch; }
+    if (G.turn > 1 && G.turn % 2 === 0 && p.board.some(x => isTr(x, 'MIL'))) p.arsenal = (p.arsenal || 0) + 1; // Militech requisition crate
     p.ramCap = ramMax(p); p.ram = p.ramCap + (p.ramCarry || 0); p.ramCarry = 0;
     for (const pk of p.perks) { const d = PERKS[pk.id]; if (d.sot) d.sot(p); }
     for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.sot) c.sot(p, x); }
@@ -1117,6 +1197,10 @@ function endTurnAll() {
     const r = cs.run();
     results.push({ a: x, b: y, r, rec });
     for (const [side, src, at, h] of r.permLog) { const pl = side === 0 ? x : y; if (pl.isGhost) continue; const m = pl.board.find(mm => mm.uid === src); if (m) buff(m, at, h); }
+    if (r.vaultLog) [x, y].forEach((pl, si) => { if (!pl.isGhost) for (const e of r.vaultLog[si]) { pl.vault = pl.vault || []; pl.vault.push(e); if (pl.vault.length > VAULT_MAX) pl.vault.shift(); } });
+    for (const [side, src, type, v] of (r.fxLog || [])) { const pl = side === 0 ? x : y; if (pl.isGhost) continue; const i = pl.board.findIndex(mm => mm.uid === src); if (i < 0) continue; const m = pl.board[i];
+      if (type === 'hum') { const w = isPsycho(m, pl); m.humMod = (m.humMod || 0) + v; psychoCheck(pl, m, w); }
+      else if (type === 'erase') { pl.board.splice(i, 1); emit('erased', { p: pl, m }); } }
     [x, y].forEach((pl, s) => { if (!pl.isGhost) { addEngram(pl, r.engramLog[s].a, r.engramLog[s].h); pl.honor = (pl.honor || 0) + r.gain[s].honor; pl.mutation = (pl.mutation || 0) + r.gain[s].mut; pl.bd = null; } });
   }
   return results;
@@ -1133,7 +1217,7 @@ function applyResults(results) {
       if (r.winner === 1 - s) {
         const d = Math.min(capT, r.dmg); p.lastDmg = d;
         let n = d; const ar = Math.min(p.armor, n); p.armor -= ar; n -= ar; p.hp -= n;
-        if (p.hp <= 0 && hasPerk(p, 'pk_secondwind') && !p.heartUsed) { p.heartUsed = true; p.hp = 10; }
+        if (p.hp <= 0 && hasPerk(p, 'pk_secondwind') && !p.heartUsed) { p.heartUsed = true; p.hp = 15; }
       } else p.lastDmg = 0;
       if (r.winner === s && p.hero.id === 'jackie') p.winBonus = (p.winBonus || 0) + 3;
     }
@@ -1229,9 +1313,6 @@ function aiPlayHand(p) {
       if (s.target) {
         const f = s.tfilter || (() => true);
         let v = validTargets(p, f);
-        if (s.id === 'sp_contagion') v = v.filter(x => !x.venom); if (s.id === 'sp_sonic') v = v.filter(x => !x.shield); if (s.id === 'sp_reset') v = v.filter(x => !x.reborn);
-        if (s.id === 'sp_wipe') v = v.filter(x => isPsycho(x, p) && x.tribe !== 'MAE');
-        if (s.id === 'sp_psychosis') v = v.filter(x => x.tribe === 'MAE' || x.atk >= 4);
         t = aiBestTarget(p, v); if (!t) t = aiBestTarget(p, validTargets(p, f));
         if (!t) { p.hand.shift(); continue; }
       }
@@ -1339,7 +1420,7 @@ function planValue(p, cfg) {
   const keep = snapP(p), pool0 = Object.assign({}, G.pool);
   endOfTurnFor(p);
   let v = fightScore(p, cfg, cfg.others) * (p.hp + p.armor < 15 ? 1.6 : 1);
-  v += .22 * p.tier + .05 * p.hand.length + .02 * (p.engram.a + p.engram.h) + .03 * (p.arsenal || 0) + .03 * (p.honor || 0) + .03 * (p.mutation || 0);
+  v += .22 * p.tier + .05 * p.hand.length + .01 * (p.vault || []).reduce((t, e) => t + e.atk + e.hp, 0) + .03 * (p.arsenal || 0) + .03 * (p.honor || 0) + .03 * (p.mutation || 0);
   if (cfg.lookahead) {
     // play the following turn too, with the same plan style, and judge that board as well
     G.turn++;
@@ -1381,6 +1462,6 @@ root.BG = {
   TRIBES, KW, KW_DESC, CARDS, CARD_LIST, SPELLS, SPELL_LIST, PERKS, PERK_LIST, WARE, WARE_LIST, HEROES, HERO_LIST, HAND_MAX, STRATS,
   get G() { return G; }, setG(g) { G = g; }, hooks, newGame, pickTribes, heroChoices, startTurn, endTurnAll, applyResults, alivePlayers, damageCap,
   actRefresh, actFreeze, actUpgrade, actBuy, actBuySpell, actBuyWare, actSell, actPlay, actInstall, actCast, actHeroPower, heroPowerUsable, actPickPerk, actReorder,
-  effStats, maxTacChance, aiSearchTurn, aiStep, aiTakeTurn, DIFF, rally, cloneStat, buyCost, needsTarget, bcFilter, validTargets, upgradeCost, spellCost, wareCost, cardText, makeMinion, aiResolvePendingOne, gm, humMax, humUsed, isPsycho, ramMax, Combat,
+  effStats, maxTacChance, aiSearchTurn, aiStep, aiTakeTurn, DIFF, rally, cloneStat, buyCost, needsTarget, bcFilter, validTargets, upgradeCost, spellCost, wareCost, cardText, defText, makeMinion, aiResolvePendingOne, gm, humMax, humUsed, isPsycho, ramMax, Combat,
 };
 })(typeof window !== 'undefined' ? window : globalThis);
