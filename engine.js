@@ -772,14 +772,15 @@ function questOffer(p) {
   const qs = shuffle(Object.keys(QUESTS)).slice(0, 3), rs = shuffle(REWARD_LIST().map(r => r.id)).slice(0, 3);
   return qs.map((q, i) => q + '|' + rs[i]);
 }
+function ev(p, k, id) { if (G && G.stats && p && !p.isGhost) (p._ev || (p._ev = [])).push(k, id); }
 function actPickQuest(p, pair) {
   const [q, r] = String(pair).split('|'); if (!QUESTS[q] || !PERKS[r]) return false;
-  p.quest = { q, r, need: questNeed(q, r), prog: 0, done: false }; return true;
+  p.quest = { q, r, need: questNeed(q, r), prog: 0, done: false }; ev(p, 'quest', q + '|' + r); return true;
 }
 function qProg(p, key, n) {
   const qu = p && p.quest; if (!qu || qu.done || !n || QUESTS[qu.q].key !== key) return;
   qu.prog = Math.min(qu.need, qu.prog + n);
-  if (qu.prog >= qu.need) { qu.done = true; p.perks.push({ id: qu.r }); const d = PERKS[qu.r]; if (d.acquire) d.acquire(p); if (qu.r === 'rw_deck') { const b = p.ramCap; p.ramCap = ramMax(p); p.ram += Math.max(0, p.ramCap - b); } emit('quest', { p }); }
+  if (qu.prog >= qu.need) { qu.done = true; ev(p, 'qdone', qu.q + '|' + qu.r); p.perks.push({ id: qu.r }); const d = PERKS[qu.r]; if (d.acquire) d.acquire(p); if (qu.r === 'rw_deck') { const b = p.ramCap; p.ramCap = ramMax(p); p.ram += Math.max(0, p.ramCap - b); } emit('quest', { p }); }
 }
 
 // ---------------- HEROES ----------------
@@ -1136,12 +1137,12 @@ function refreshShop(p, extra) {
 // ---------------- actions ----------------
 function actRefresh(p) {
   if (p.freeRefresh > 0) { p.freeRefresh--; qProg(p, 'refresh', 1); refreshShop(p); pkEv(p, 'onRefresh'); return true; }
-  if (p.gold < 1) return false; p.gold -= 1; p.spent += 1; qProg(p, 'spend', 1); qProg(p, 'refresh', 1); refreshShop(p); pkEv(p, 'onRefresh'); return true;
+  if (p.gold < 1) return false; p.gold -= 1; p.spent += 1; qProg(p, 'spend', 1); qProg(p, 'refresh', 1); refreshShop(p); pkEv(p, 'onRefresh'); ev(p, 'refresh', 1); return true;
 }
 function actFreeze(p) { p.frozen = !p.frozen; return true; }
 function actUpgrade(p) {
   if (p.tier >= MAX_TIER) return false; const c = upgradeCost(p); if (p.gold < c) return false;
-  p.gold -= c; p.spent += c; qProg(p, 'spend', c); p.tier++; p.upCost = UPC[p.tier + 1] || 0;
+  p.gold -= c; p.spent += c; qProg(p, 'spend', c); p.tier++; ev(p, 'up', p.tier); p.upCost = UPC[p.tier + 1] || 0;
   if (!p.frozen) refreshShop(p);
   const nm = ramMax(p); p.ram += Math.max(0, nm - p.ramCap); p.ramCap = nm;
   if (p.hero.power.onUpgrade) p.hero.power.onUpgrade(p);
@@ -1150,7 +1151,7 @@ function actUpgrade(p) {
 function actBuy(p, idx) {
   const price = buyCost(p);
   const m = p.shop[idx]; if (!m || p.gold < price || p.hand.length >= HAND_MAX) return false;
-  p.gold -= price; p.spent += price; qProg(p, 'spend', price); qProg(p, 'buy', 1); p.boughtThisTurn = true; p.shop.splice(idx, 1); p.hand.push(m); pkEv(p, 'onBuy', m);
+  p.gold -= price; p.spent += price; qProg(p, 'spend', price); qProg(p, 'buy', 1); p.boughtThisTurn = true; p.shop.splice(idx, 1); p.hand.push(m); ev(p, 'buy', m.id); pkEv(p, 'onBuy', m);
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onBuyFriendly) c.onBuyFriendly(p, x, m); }
   checkTriple(p);
   return true;
@@ -1158,16 +1159,16 @@ function actBuy(p, idx) {
 function actBuySpell(p, i) {
   i = i || 0; const s = p.shopSpells[i]; if (!s || p.hand.length >= HAND_MAX) return false;
   const cost = spellCost(p, s); if (p.ram < cost) return false;
-  p.ram -= cost; p.shopSpells.splice(i, 1); p.hand.push(s); return true;
+  p.ram -= cost; p.shopSpells.splice(i, 1); p.hand.push(s); ev(p, 'bspell', s.id); return true;
 }
 function actBuyWare(p, i) {
   i = i || 0; const w = p.shopWares[i]; if (!w || p.hand.length >= HAND_MAX) return false;
   const cost = wareCost(p, w); if (p.gold < cost) return false;
-  p.gold -= cost; p.spent += cost; qProg(p, 'spend', cost); p.shopWares.splice(i, 1); p.hand.push(w); return true;
+  p.gold -= cost; p.spent += cost; qProg(p, 'spend', cost); p.shopWares.splice(i, 1); p.hand.push(w); ev(p, 'bware', w.id); return true;
 }
 function actSell(p, idx) {
   const m = p.board[idx]; if (!m) return false;
-  p.board.splice(idx, 1); returnToPool(m); syncRam(p); qProg(p, 'sell', 1);
+  p.board.splice(idx, 1); returnToPool(m); syncRam(p); qProg(p, 'sell', 1); ev(p, 'sell', m.id);
   if (m.id !== 'tok_clone') p.gold = Math.min(p.gold + 3 + cntId(p.board, 'val_pawn'), 99);
   if (p.hero.power.onSell) p.hero.power.onSell(p, m);
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onSellFriendly) c.onSellFriendly(p, x, m); }
@@ -1190,7 +1191,7 @@ function actPlay(p, hIdx, pos, target) {
   const c = CARDS[m.id]; const f = bcFilter(c);
   if (f && target && (!p.board.includes(target) || !f(target))) target = null;
   if (f && !target) { const v = validTargets(p, f, m); if (v.length) target = pick(v); }
-  p.hand.splice(hIdx, 1);
+  p.hand.splice(hIdx, 1); ev(p, 'play', m.id);
   pos = Math.max(0, Math.min(pos == null ? p.board.length : pos, p.board.length));
   p.board.splice(pos, 0, m);
   absorbEngram(p, m);
@@ -1206,7 +1207,7 @@ function syncRam(p) { const nm = ramMax(p); if (nm > p.ramCap) { p.ram += nm - p
 function actInstall(p, hIdx, target) {
   const w = p.hand[hIdx]; if (!w || w.kind !== 'ware') return false;
   if (!target || !p.board.includes(target)) return false;
-  p.hand.splice(hIdx, 1);
+  p.hand.splice(hIdx, 1); ev(p, 'install', w.id);
   installWare(p, target, w.id);
   return true;
 }
@@ -1217,7 +1218,7 @@ function actCast(p, hIdx, target) {
     const f = s.tfilter || (() => true);
     if (!target || !p.board.includes(target) || !f(target)) { const v = validTargets(p, f); if (!v.length) return false; target = pick(v); }
   }
-  p.hand.splice(hIdx, 1); qProg(p, 'cast', 1); p.hacksCast = (p.hacksCast || 0) + 1; p.hacksTurn = (p.hacksTurn || 0) + 1; p.lastHack = sp.id;
+  p.hand.splice(hIdx, 1); ev(p, 'cast', sp.id); qProg(p, 'cast', 1); p.hacksCast = (p.hacksCast || 0) + 1; p.hacksTurn = (p.hacksTurn || 0) + 1; p.lastHack = sp.id;
   const n = spellMult(p); p.loaUsed = true;
   for (let i = 0; i < n; i++) { if (s.target && !p.board.includes(target)) break; s.cast(p, target); }
   for (const x of p.board.slice()) { const c = CARDS[x.id]; if (c.onSpell) c.onSpell(p, x, s); }
@@ -1240,11 +1241,11 @@ function actHeroPower(p, target) {
   if (!heroPowerUsable(p)) return false; const hp = p.hero.power;
   if (hp.target === 'board' && (!target || !p.board.includes(target) || (hp.tfilter && !hp.tfilter(target)))) return false;
   if (hp.target === 'shop' && (!target || !p.shop.includes(target))) return false;
-  p.gold -= hp.cost; p.spent += hp.cost; qProg(p, 'spend', hp.cost); p.hpUsed = 1; hp.use(p, target); return true;
+  p.gold -= hp.cost; p.spent += hp.cost; qProg(p, 'spend', hp.cost); p.hpUsed = 1; ev(p, 'power', 1); hp.use(p, target); return true;
 }
 function actPickPerk(p, id) {
   const im = PERKS[id]; if (p.gold < im.cost) return false;
-  p.gold -= im.cost; p.spent += im.cost; qProg(p, 'spend', im.cost); p.perks.push({ id }); if (im.acquire) im.acquire(p);
+  p.gold -= im.cost; p.spent += im.cost; qProg(p, 'spend', im.cost); p.perks.push({ id }); ev(p, 'perk', id); if (im.acquire) im.acquire(p);
   if (id === 'pk_ram' || id === 'pk_deck' || id === 'pk_vdb1') { const before = p.ramCap; p.ramCap = ramMax(p); p.ram += Math.max(0, p.ramCap - before); }
   return true;
 }
@@ -1266,7 +1267,7 @@ function checkTriple(p) {
       gm2.hp = three.reduce((s, x) => s + x.hp, 0);
       for (const x of three) { for (const k of Object.keys(KW)) if (x[k]) gm2[k] = true; gm2.ware.push(...(x.ware || [])); gm2.humMod += (x.humMod || 0); }
       { const wasPsy = three.some(x => isPsycho(x, p)); if (!wasPsy) gm2.humMod += Math.max(0, humUsed(gm2) - humMax(gm2, p)); }
-      gm2.tripleReward = true;
+      gm2.tripleReward = true; ev(p, 'triple', id);
       for (const x of three) { let i = p.board.indexOf(x); if (i >= 0) p.board.splice(i, 1); else { i = p.hand.indexOf(x); if (i >= 0) p.hand.splice(i, 1); } }
       p.hand.push(gm2); p.triples++;
       emit('triple', { p, m: gm2 });
@@ -1545,14 +1546,14 @@ function startTurnFor(p) {
     if (p.hero.power.sot) p.hero.power.sot(p);
     if (p.frozen) { p.frozen = false; if (!p.shopSpells.length) p.shopSpells = rollOffers(() => makeSpell(randomSpellId(p))); if (!p.shopWares.length) p.shopWares = rollOffers(() => makeWare(randomWareId(p))); }
     else refreshShop(p);
-    if (G.turn === 4 && !p.quest) queue(p, { type: 'quest', opts: questOffer(p) });
+    if (G.turn === 4 && !p.quest) { const qo = questOffer(p); queue(p, { type: 'quest', opts: qo }); qo.forEach(x => ev(p, 'qoffer', x)); }
     if (G.turn === 6 || G.turn === 9) {
       const greater = G.turn === 9;
       const pool = PERK_LIST.filter(i => !i.reward && i.greater === greater && !p.perks.some(x => x.id === i.id) && (!i.tribe || G.tribes.includes(i.tribe)));
       const wt = i => i.tribe ? .7 + 1.6 * Math.min(5, boardOf(p, i.tribe).length) : 1.2;
       const opts = [];
       while (opts.length < 4 && pool.length) { let tot = pool.reduce((a, i) => a + wt(i), 0), r = Math.random() * tot, k = 0; for (; k < pool.length - 1; k++) { r -= wt(pool[k]); if (r < 0) break; } opts.push(pool.splice(k, 1)[0]); }
-      queue(p, { type: 'perk', opts: opts.map(o => o.id) });
+      queue(p, { type: 'perk', opts: opts.map(o => o.id) }); opts.forEach(o => ev(p, 'poffer', o.id));
     }
 
 }
