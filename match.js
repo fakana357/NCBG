@@ -23,12 +23,13 @@ const sendAll = msg => humans.forEach(h => send(h.seat, msg));
 
 // ---------- hero selection ----------
 const tribes = B.pickTribes();
+const anomaly = (k => k[Math.floor(Math.random() * k.length)])(Object.keys(B.ANOMALIES));
 const used = [];
 const heroOpts = {};
 for (const h of humans) { const o = B.heroChoices(4, used, tribes).map(x => x.id); used.push(...o); heroOpts[h.seat] = o; }
 const picked = {};
 deadline = Date.now() + HERO_PICK_MS;
-for (const h of humans) send(h.seat, { t: 'heroes', opts: heroOpts[h.seat], tribes, left: HERO_PICK_MS });
+for (const h of humans) send(h.seat, { t: 'heroes', opts: heroOpts[h.seat], tribes, anomaly, left: HERO_PICK_MS });
 timer = setTimeout(startMatch, HERO_PICK_MS);
 function pushPicks() { sendAll({ t: 'picks', players: humans.map(h => ({ name: h.name, picked: !!picked[h.seat], gone: !connected.has(h.seat) })) }); }
 pushPicks();
@@ -41,7 +42,7 @@ function startMatch() {
   const botHeroes = B.heroChoices(nBots, taken, tribes).map(h => h.id);
   while (botHeroes.length < nBots) botHeroes.push(B.heroChoices(1, [], tribes)[0].id);
   const ids = taken.concat(botHeroes);
-  B.newGame(ids[0], humans[0].name, ids.slice(1), tribes, null, 0);
+  B.newGame(ids[0], humans[0].name, ids.slice(1), tribes, null, 0, anomaly);
   G = B.G; G.multi = true;
   const names = shuffle(BOT_NAMES.slice());
   G.players.forEach((p, i) => {
@@ -69,7 +70,7 @@ function pub(p) {
   if (p.isGhost) return { isGhost: true, id: 'ghost', name: p.name, heroId: p.hero.id, tier: p.tier, ghostOf: p.ghostOf, hp: 0, armor: 0, alive: false };
   return { id: p.id, name: p.name, heroId: p.hero.id, hp: p.hp, armor: p.armor, tier: p.tier, alive: p.alive, placement: p.placement, lastSeen: p.lastSeen, lastResult: p.lastResult, lastOppName: p.lastOppName, lastOpp: p.lastOpp, nextOpp: p.nextOpp, human: !!p.human, perks: p.perks, engram: p.engram };
 }
-function game() { return { turn: G.turn, tribes: G.tribes, over: G.over, left: Math.max(0, deadline - Date.now()), phase, players: G.players.map(pub), ghost: (G.pairs || []).flat().filter(x => x.isGhost).map(pub)[0] || null }; }
+function game() { return { turn: G.turn, tribes: G.tribes, anomaly: G.anomaly, over: G.over, left: Math.max(0, deadline - Date.now()), phase, players: G.players.map(pub), ghost: (G.pairs || []).flat().filter(x => x.isGhost).map(pub)[0] || null }; }
 function stateFor(p, extra) {
   const ev = events[p.seat] || []; events[p.seat] = [];
   return Object.assign({ t: 'state', me: mine(p), game: game(), done: done.has(p.seat), events: ev }, extra || {});
@@ -121,6 +122,7 @@ function act(p, a) {
     case 'pick': {
       const it = p.pending[0]; if (!it || !it.opts.includes(a.id)) return false;
       if (it.type === 'perk') { if (!B.actPickPerk(p, a.id)) return false; p.pending.shift(); return true; }
+      if (it.type === 'quest') { if (!B.actPickQuest(p, a.id)) return false; p.pending.shift(); return true; }
       p.pending.shift(); it.onPick(a.id); return true;
     }
   }
@@ -171,7 +173,7 @@ parentPort.on('message', ({ seat, msg, sys }) => {
   }
   if (sys === 'reconnect') {
     connected.add(seat);
-    if (phase === 'heroes') { send(seat, { t: 'heroes', opts: heroOpts[seat], tribes, left: Math.max(0, deadline - Date.now()), picked: picked[seat] }); return; }
+    if (phase === 'heroes') { send(seat, { t: 'heroes', opts: heroOpts[seat], tribes, anomaly, left: Math.max(0, deadline - Date.now()), picked: picked[seat] }); return; }
     if (G) { const p = G.players.find(x => x.seat === seat); if (p) { p.isAI = false; if (phase === 'recruit') done.delete(seat); send(seat, stateFor(p, { t: 'turn', resume: true })); pushStatus(); } }
     return;
   }
