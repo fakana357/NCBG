@@ -1389,11 +1389,27 @@ body.targeting #board .card:not(.tgt):not(.pending),body.targeting #shop .card:n
 html.has-bgfx,html.has-bgfx body{background:transparent!important}
 html.has-bgfx{background:#06060c!important}
 /* ---- pseudo-3D cards ---- */
-.card.tilt{transform:perspective(700px) rotateX(calc(var(--rx) * 1deg)) rotateY(calc(var(--ry) * 1deg));transition:transform .08s linear,filter .2s}
+.card.tilt{transform:perspective(600px) rotateX(calc(var(--rx) * 1.25deg)) rotateY(calc(var(--ry) * 1.25deg)) translateZ(14px);transition:transform .08s linear,filter .2s}
 .card{transition:transform .3s cubic-bezier(.2,.8,.3,1),filter .25s}
 #hand>.card.tilt{transition:translate .18s,rotate .18s,scale .18s,filter .18s,transform .08s linear}
-.card.tilt .cs,.card.tilt .cimg{translate:calc(var(--ry) * -.35px) calc(var(--rx) * .35px);scale:1.06;transition:translate .08s linear}
-.card .cs,.card .cimg{transition:translate .35s,scale .35s}
+/* layered parallax inside the card: far art plane, mid grid, near glyph, floating frame parts */
+.card{--rx:0;--ry:0}
+.card:not(.spell):not(.ware) .cs,.card .cimg{position:relative;overflow:hidden;background-position:calc(50% + var(--ry) * -.9px) calc(50% + var(--rx) * .9px)!important;transition:background-position .35s}
+.card .cimg{background-size:118%!important}
+.card .cs::after{content:'';position:absolute;inset:-20%;pointer-events:none;opacity:0;transition:opacity .25s,transform .35s;
+  background:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px) 0 0/100% .28em,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/.5em 100%;
+  transform:translate(calc(var(--ry) * -.45px),calc(var(--rx) * .45px))}
+.card.tilt .cs::after{opacity:1}
+.card .csg{display:inline-block;font-style:normal;position:relative;z-index:1;transition:transform .35s,filter .35s}
+.card.tilt .csg{transform:translate(calc(var(--ry) * .75px),calc(var(--rx) * -.75px)) scale(1.14);filter:drop-shadow(calc(var(--ry) * -.35px) calc(var(--rx) * .35px + 3px) 2px rgba(0,0,0,.55));transition:transform .08s linear,filter .08s linear}
+.card.tilt .cimg{background-position:calc(50% + var(--ry) * -1.4px) calc(50% + var(--rx) * 1.4px)!important;transition:background-position .08s linear}
+.card.tilt .cs{transition:background-position .08s linear}
+.card .ch,.card .cf,.card .bdgs,.card .tcorner,.card .hum{transition:translate .35s}
+.card.tilt .ch,.card.tilt .tcorner{translate:calc(var(--ry) * .3px) calc(var(--rx) * -.3px);transition:translate .08s linear}
+.card.tilt .cf{translate:calc(var(--ry) * .4px) calc(var(--rx) * -.4px);transition:translate .08s linear}
+.card.tilt .bdgs{translate:calc(var(--ry) * .6px) calc(var(--rx) * -.6px);transition:translate .08s linear}
+.card.tilt .qh-pkg,.card.tilt .wtop{translate:calc(var(--ry) * .3px) calc(var(--rx) * -.3px)}
+.card.tilt{box-shadow:calc(var(--ry) * -1px) calc(var(--rx) * 1px + 14px) 26px rgba(0,0,0,.55)}
 .card>.glare{position:absolute;inset:0;z-index:30;pointer-events:none;border-radius:inherit;opacity:0;transition:opacity .3s;mix-blend-mode:screen;
   background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.55),rgba(140,240,255,.18) 22%,transparent 55%),
   linear-gradient(calc(110deg + var(--ry,0) * 3deg),transparent 30%,rgba(255,0,140,.16) 42%,rgba(0,240,255,.16) 52%,rgba(243,230,0,.12) 60%,transparent 72%)}
@@ -1433,8 +1449,342 @@ button,.mbtn,.tbtn{position:relative}
 html.has-bgfx #main{background-color:rgba(8,8,14,.62)!important}
 html.has-bgfx #lobby{background:linear-gradient(180deg,rgba(10,10,20,.86),rgba(7,7,14,.8))}
 html.has-bgfx #menu{background:radial-gradient(ellipse at 50% 45%,rgba(6,6,12,.55),rgba(6,6,12,.15) 70%)}
+
+/* =====================================================================
+   NIGHT CITY THEME — menus, screens, HUD
+   palette: blood-red panels, salmon text, yellow selection, cyan "on"
+   ===================================================================== */
+:root{
+  --nr:#ff5f56;          /* menu text red */
+  --nr2:#c8303a;         /* line red */
+  --nrd:#3c0609;         /* panel red dark */
+  --nrm:#6b0d14;         /* panel red mid */
+  --ny:#fcee0a;          /* selection yellow */
+  --nc:#5ef6ff;          /* "on" cyan */
+  --nbg:#0b0406;         /* screen black-red */
+  --nline:rgba(255,95,86,.28);
+  --notch:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%);
+  --notch-s:polygon(0 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%);
+}
+
+/* ---------- shared: selection box (yellow outline with notched corner) ---------- */
+.nsel{position:relative;isolation:isolate}
+.nsel::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--ny);clip-path:var(--notch)}
+.nsel::after{content:'';position:absolute;inset:2px;z-index:-1;background:linear-gradient(90deg,#4a070c,#2e0407);clip-path:var(--notch)}
+
+/* ======================= MAIN MENU ======================= */
+#menu{display:block!important;background:transparent!important;overflow:hidden}
+#menu.hidden{display:none!important}
+#menu::before,#menu::after{display:none!important;content:none!important}
+.mpanel{position:absolute;left:0;top:0;bottom:0;width:min(600px,100%);display:flex;flex-direction:column;justify-content:center;gap:clamp(26px,5vh,54px);
+  padding:clamp(28px,6vh,70px) clamp(28px,4vw,64px) clamp(28px,6vh,70px) clamp(40px,5vw,78px);
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),
+    linear-gradient(90deg,rgba(255,60,40,.08) 0 1px,transparent 1px) 0 0/120px 100%,
+    linear-gradient(100deg,rgba(120,12,20,.92) 0%,rgba(98,9,16,.86) 55%,rgba(60,5,10,.62) 85%,rgba(40,4,8,0) 100%);
+  animation:mpIn .7s cubic-bezier(.2,.8,.2,1) both}
+.mpanel::before{content:'';position:absolute;left:clamp(14px,2vw,30px);top:0;bottom:0;width:4px;background:linear-gradient(180deg,#ffd000,#ff7a00 40%,#ff3d00 70%,#ffb300);box-shadow:0 0 14px #ff8a00,0 0 40px rgba(255,120,0,.6)}
+.mpanel::after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0 40%,rgba(255,80,60,.10) 40% 40.4%,transparent 40.4%) 0 18%/100% 2px no-repeat,
+             linear-gradient(90deg,transparent 0 12%,rgba(94,246,255,.18) 12% 30%,transparent 30%) 0 71%/100% 1px no-repeat,
+             linear-gradient(90deg,transparent 0 55%,rgba(255,80,60,.16) 55% 78%,transparent 78%) 0 88%/100% 2px no-repeat;
+  animation:mpFlick 7s steps(1,end) infinite}
+@keyframes mpIn{0%{transform:translateX(-40px);opacity:0;filter:drop-shadow(8px 0 0 rgba(94,246,255,.6))}60%{filter:drop-shadow(-4px 0 0 rgba(255,0,60,.6))}100%{transform:none;opacity:1;filter:none}}
+@keyframes mpFlick{0%,100%{opacity:1}31%{opacity:.4;transform:translateX(6px)}32%{opacity:1;transform:none}77%{opacity:0}78%{opacity:1}}
+
+/* title */
+.mlogo{align-items:flex-start!important;line-height:.86;position:relative;user-select:none}
+.mlogo .m1{position:relative;display:inline-block;white-space:nowrap;font-family:'Orbitron',var(--fd);font-weight:900;font-style:italic;font-size:clamp(40px,4.9vw,84px)!important;letter-spacing:.02em!important;color:var(--ny)!important;
+  transform:skewX(-12deg);text-shadow:4px 4px 0 #00c8d8,7px 7px 0 rgba(0,200,216,.25),0 0 30px rgba(252,238,10,.25)!important;animation:none!important;padding:0 .1em}
+.mlogo .m1::before,.mlogo .m1::after{content:attr(data-t);position:absolute;left:0;top:0;padding:0 .1em;pointer-events:none;color:var(--ny);text-shadow:none;opacity:0}
+.mlogo .m1::before{color:#5ef6ff;animation:ttlA 4.2s steps(1,end) infinite}
+.mlogo .m1::after{color:#ff2a4a;animation:ttlB 4.2s steps(1,end) infinite}
+@keyframes ttlA{0%,86%,100%{opacity:0}87%{opacity:.9;clip-path:inset(12% 0 62% 0);transform:translate(-9px,0)}88%{clip-path:inset(58% 0 18% 0);transform:translate(7px,0)}89%{opacity:0}94%{opacity:.8;clip-path:inset(30% 0 46% 0);transform:translate(-14px,0)}95%{opacity:0}}
+@keyframes ttlB{0%,86%,100%{opacity:0}87%{opacity:.9;clip-path:inset(64% 0 8% 0);transform:translate(10px,0)}88%{clip-path:inset(6% 0 76% 0);transform:translate(-6px,0)}89%{opacity:0}94%{opacity:.85;clip-path:inset(44% 0 30% 0);transform:translate(12px,0)}95%{opacity:0}}
+.mlogo .m1 .gblk{position:absolute;height:.12em;background:#ff2a4a;mix-blend-mode:screen;opacity:0;animation:gblk 4.2s steps(1,end) infinite}
+@keyframes gblk{0%,86%,100%{opacity:0}87%,88%{opacity:.85}94%{opacity:.7}95%{opacity:0}}
+.mlogo .m2{display:flex!important;align-items:center;margin:16px 0 0 .3em!important;padding:0!important;border:none!important;font-family:'Orbitron',var(--fd);font-weight:700;font-size:clamp(13px,1.35vw,20px)!important;letter-spacing:0!important;color:var(--nc)!important;text-shadow:0 0 10px rgba(94,246,255,.5)}
+.mlogo .m2 i{font-style:normal;display:inline-flex;align-items:center}
+.mlogo .m2 i+i::before{content:'';display:inline-block;width:.55em;height:1px;margin:0 .2em;background:currentColor;opacity:.55;box-shadow:0 0 4px currentColor}
+.mlogo .m2 i:nth-child(4n+2)::after{content:'';display:inline-block;width:3px;height:3px;margin-left:.15em;background:currentColor;border-radius:50%;opacity:.7;vertical-align:middle}
+
+/* menu list */
+.mbtns{width:min(430px,100%)!important;gap:6px!important;align-items:stretch}
+#menu .mbtn,#online .mbtn{position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;text-align:left;font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;font-size:clamp(24px,2.1vw,32px)!important;letter-spacing:.03em!important;
+  padding:9px 20px 9px 22px!important;background:transparent!important;color:var(--nr)!important;border:none!important;box-shadow:none!important;clip-path:none!important;transform:none!important;filter:none!important;text-shadow:0 0 12px rgba(255,60,50,.35);transition:color .12s}
+#menu .mbtn::before,#online .mbtn::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--ny);clip-path:var(--notch);opacity:0;transition:opacity .1s}
+#menu .mbtn::after,#online .mbtn::after{content:'';position:absolute;inset:2px;z-index:-1;clip-path:var(--notch);opacity:0;
+  background:
+    linear-gradient(var(--ny),var(--ny)) right 22px top 50%/20px 2px no-repeat,
+    linear-gradient(var(--ny),var(--ny)) right 22px top calc(50% - 6px)/20px 2px no-repeat,
+    linear-gradient(var(--ny),var(--ny)) right 22px top calc(50% + 6px)/20px 2px no-repeat,
+    linear-gradient(var(--ny),var(--ny)) right 46px top calc(50% - 3px)/6px 8px no-repeat,
+    linear-gradient(90deg,#55070c,#2c0306 80%);
+  transition:opacity .1s}
+#menu .mbtn:hover,#menu .mbtn:focus-visible,#menu #mPlay,#online .mbtn:hover,#online .mbtn.prim{color:var(--ny)!important;text-shadow:0 0 14px rgba(252,238,10,.45)}
+#menu .mbtn:hover::before,#menu .mbtn:hover::after,#menu #mPlay::before,#menu #mPlay::after,#online .mbtn:hover::before,#online .mbtn:hover::after,#online .mbtn.prim::before,#online .mbtn.prim::after{opacity:1}
+#menu .mbtn:active{transform:translateX(3px)!important}
+#menu #mPlay{font-size:clamp(28px,2.6vw,38px)!important;padding-top:14px!important;padding-bottom:14px!important;margin-bottom:6px}
+#menu .mbtn.mini{font-size:clamp(17px,1.3vw,20px)!important;color:var(--nc)!important;text-shadow:0 0 10px rgba(94,246,255,.35);padding:6px 22px!important}
+#menu .mbtn.mini::before{background:var(--nc)!important}
+#menu .mbtn.mini::after{background:linear-gradient(90deg,#08262b,#041114)!important}
+#menu .mbtn.mini:hover{color:var(--nc)!important}
+.botpanel{padding:10px 0 6px 22px!important;background:none!important;border:none!important;box-shadow:inset 2px 0 0 rgba(94,246,255,.5)!important;gap:10px}
+.botpanel .mbtn{font-size:24px!important}
+
+/* difficulty: settings-style toggle */
+.mdiff{gap:4px!important;margin:0 0 10px!important;padding:0 0 0 22px;position:relative}
+.mdiff::before{content:'◀';position:absolute;left:0;top:50%;transform:translateY(-50%);font-size:10px;color:var(--nr);opacity:.8}
+.mdiff::after{content:'▶';position:absolute;right:-16px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--nr);opacity:.8}
+.mdiff button{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;font-size:15px!important;letter-spacing:.1em!important;padding:7px 6px!important;background:rgba(120,14,22,.55)!important;color:var(--nr)!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.35)!important;margin:0!important}
+.mdiff button:hover{color:#fff!important}
+.mdiff button.on,.mdiff button[data-d="2"].on{background:var(--nc)!important;color:#021014!important;box-shadow:0 0 14px rgba(94,246,255,.45)!important}
+
+/* ======================= SECONDARY SCREENS (settings look) ======================= */
+.screen:not(#menu){background:
+   radial-gradient(ellipse 80% 60% at 50% 0%,rgba(140,14,24,.35),transparent 70%),
+   repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px),
+   rgba(11,4,6,.94)!important}
+html.has-bgfx .screen:not(#menu){background:
+   radial-gradient(ellipse 80% 60% at 50% 0%,rgba(140,14,24,.32),transparent 70%),
+   repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px),
+   rgba(11,4,6,.9)!important}
+.backbtn{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;font-size:15px!important;letter-spacing:.1em!important;color:var(--nr)!important;background:rgba(60,6,10,.6)!important;border:none!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.5)!important;padding:6px 12px!important;clip-path:var(--notch-s)!important}
+.backbtn:hover{color:var(--ny)!important;box-shadow:inset 0 0 0 1px var(--ny)!important}
+.lhead{border-bottom:1px solid var(--nline)!important;background:linear-gradient(180deg,rgba(60,6,10,.55),rgba(30,4,6,.3))!important;box-shadow:none!important}
+.lhead h2,#heroSel h1{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.14em!important;color:var(--nr)!important;text-shadow:0 0 14px rgba(255,60,50,.35)!important}
+#heroSel h1::after{background:var(--nr2)!important;box-shadow:0 0 8px var(--nr2)!important}
+.ltabs button,.tf{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.08em!important;color:var(--nr)!important;background:transparent!important;border:none!important;box-shadow:none!important;position:relative}
+.ltabs button:hover,.tf:hover{color:#fff!important}
+.ltabs button.on,.tf.on{color:var(--nc)!important;background:rgba(94,246,255,.08)!important;box-shadow:inset 0 -2px 0 var(--nc)!important}
+.lfilters .chip,.lfilters button{border-radius:0!important}
+#rules section,#rules .rsec{background:linear-gradient(180deg,rgba(40,6,10,.55),rgba(20,4,6,.45))!important;border:none!important;box-shadow:inset 0 0 0 1px var(--nline)!important;border-radius:0!important}
+#rules section h3{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.12em!important;color:#e9e4e6!important;background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.02))!important;margin:-1px -1px 12px!important;padding:8px 14px!important;border:none!important;box-shadow:inset 3px 0 0 var(--nr)!important}
+#rules section h3 *{color:var(--nr)!important}
+#rules li::marker{color:var(--nr)}
+#rules b{color:#fff}
+#rules section::before,#rules section::after{display:none!important}
+
+/* hero select */
+.hopt{background:linear-gradient(180deg,rgba(70,8,14,.82),rgba(30,4,7,.9))!important;border:none!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.35)!important;clip-path:var(--notch)!important;border-radius:0!important}
+.hopt:hover{box-shadow:inset 0 0 0 2px var(--ny),0 0 0 0 transparent!important;transform:translateY(-3px)!important}
+.hopt .hn{color:var(--ny)!important;font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.06em!important}
+.hopt .pn{color:var(--nc)!important}
+.hopt .pt{color:#e9e2e4!important}
+#lobbyTribes .tchip{border-radius:0!important}
+
+/* online lobby */
+.on-in{background:rgba(50,6,10,.75)!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.5)!important;font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.12em!important;clip-path:var(--notch-s)}
+.on-in:focus{box-shadow:inset 0 0 0 2px var(--nc)!important}
+.on-in::placeholder{color:rgba(255,95,86,.6)}
+.on-room,.on-list>*{background:rgba(50,6,10,.6)!important;box-shadow:inset 0 0 0 1px var(--nline)!important;border-radius:0!important}
+.on-room:hover{box-shadow:inset 0 0 0 1px var(--ny)!important}
+#online .mlogo{margin-bottom:6px}
+
+/* ======================= IN-GAME HUD ======================= */
+#lobby{background:linear-gradient(180deg,rgba(40,5,9,.88),rgba(18,3,5,.88))!important;box-shadow:inset -1px 0 0 var(--nline),6px 0 20px rgba(0,0,0,.5)!important}
+.lb{background:linear-gradient(90deg,rgba(255,95,86,.07),transparent)!important;box-shadow:inset 0 -1px 0 rgba(255,95,86,.12)!important}
+.lb .lb-n{color:#f0e6e8}
+.lb.me{background:linear-gradient(90deg,rgba(252,238,10,.14),rgba(252,238,10,.02))!important;box-shadow:inset 2px 0 0 var(--ny),inset 0 0 0 1px rgba(252,238,10,.55)!important}
+.lb.next{box-shadow:inset 2px 0 0 var(--nr),inset 0 0 0 1px rgba(255,95,86,.45)!important}
+.lb.dead{opacity:.45}
+@media (max-width:760px){.lb,.lb.me,.lb.next{box-shadow:none!important}.lb.me{background:rgba(252,238,10,.12)!important;box-shadow:inset 0 -2px 0 var(--ny)!important}.lb.next{box-shadow:inset 0 -2px 0 var(--nr)!important}}
+
+#tavbar{background:linear-gradient(180deg,rgba(60,6,10,.7),rgba(30,4,6,.35))!important;box-shadow:inset 0 -1px 0 var(--nline)!important}
+.tbtn{background:linear-gradient(180deg,rgba(90,10,16,.8),rgba(45,5,9,.85))!important;color:var(--nr)!important;border:none!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.45)!important;clip-path:var(--notch-s)!important;border-radius:0!important;text-shadow:0 0 8px rgba(255,60,50,.35)}
+.tbtn:hover:not(:disabled){color:var(--ny)!important;box-shadow:inset 0 0 0 2px var(--ny)!important;background:linear-gradient(180deg,rgba(90,10,16,.9),rgba(45,5,9,.9))!important}
+.tbtn.on{color:#021014!important;background:var(--nc)!important;box-shadow:0 0 12px rgba(94,246,255,.5)!important;text-shadow:none}
+.tbtn:disabled{opacity:.45}
+.tbtn .cost{color:var(--ny)!important}
+
+#endBtn{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.08em!important;clip-path:var(--notch)!important;border-radius:0!important;position:relative}
+#endBtn:not(:disabled){background:
+   linear-gradient(#0b0406,#0b0406) right 10px top 7px/12px 2px no-repeat,
+   linear-gradient(#0b0406,#0b0406) right 10px top 11px/12px 2px no-repeat,
+   linear-gradient(#0b0406,#0b0406) right 10px top 15px/12px 2px no-repeat,
+   var(--ny)!important;color:#0b0406!important;box-shadow:0 0 18px rgba(252,238,10,.35)!important}
+#endBtn:not(:disabled):hover{filter:brightness(1.08) drop-shadow(0 0 10px rgba(252,238,10,.6))}
+#endBtn:disabled{background:rgba(60,6,10,.7)!important;color:rgba(255,95,86,.55)!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.35)!important}
+
+/* tooltips */
+.tbox{background:linear-gradient(180deg,rgba(40,5,9,.97),rgba(18,3,5,.97))!important;border:none!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.55),0 10px 30px rgba(0,0,0,.6)!important;clip-path:var(--notch);border-radius:0!important}
+.tbox>b:first-child{color:var(--ny)!important;letter-spacing:.04em}
+.tbox .meta{color:var(--nc)!important}
+
+/* pending choices & modals */
+#modal .mt{font-family:'Rajdhani',var(--fd)!important;font-weight:700!important;letter-spacing:.16em!important;color:var(--nr)!important;text-shadow:0 0 14px rgba(255,60,50,.45)!important;border:none!important;background:none!important}
+#modal .mt::before,#modal .mt::after{background:var(--nr2)!important;box-shadow:0 0 8px var(--nr2)!important}
+#modal .opt.pk{background:linear-gradient(180deg,rgba(70,8,14,.92),rgba(28,4,7,.95))!important;border:none!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.45)!important;clip-path:var(--notch)!important;border-radius:0!important}
+#modal .opt.pk:hover{box-shadow:inset 0 0 0 2px var(--ny)!important}
+#modal .opt.pk .pkh{background:rgba(255,95,86,.12)!important}
+#modal .opt.pk .pkn{color:var(--ny)!important}
+#modal .opt.qopt .pkn{color:var(--nc)!important}
+
+/* result / game over */
+.result h1,.result h2{font-family:'Rajdhani',var(--fd)!important;letter-spacing:.12em}
+
+/* glitch entrance tuned to the red palette */
+@keyframes glitchIn{
+  0%{clip-path:inset(0 0 85% 0);transform:translateX(-10px);filter:drop-shadow(5px 0 0 rgba(255,42,74,.85)) drop-shadow(-5px 0 0 rgba(94,246,255,.85))}
+  12%{clip-path:inset(40% 0 30% 0);transform:translateX(12px)}
+  24%{clip-path:inset(10% 0 60% 0);transform:translateX(-5px)}
+  36%{clip-path:inset(70% 0 0 0);transform:translateX(7px);filter:drop-shadow(3px 0 0 rgba(255,42,74,.7)) drop-shadow(-3px 0 0 rgba(94,246,255,.7))}
+  48%{clip-path:inset(0 0 0 0);transform:translateX(-2px)}
+  60%,100%{clip-path:none;transform:none;filter:none}}
+
+/* phones */
+@media (max-width:760px){
+  .mpanel{width:100%;justify-content:flex-start;padding:max(56px,9vh) 26px 30px 44px;gap:34px;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(110,10,18,.86),rgba(80,8,14,.78) 60%,rgba(40,4,8,.55))}
+  .mpanel::before{left:16px}
+  .mlogo .m1{font-size:clamp(40px,12vw,64px)!important}
+  .mlogo .m2{font-size:clamp(10px,3.1vw,15px)!important}
+  #menu .mbtn{font-size:26px!important;padding:8px 18px!important}
+  #menu #mPlay{font-size:30px!important}
+  .mdiff::after{right:-12px}
+}
+
+/* ---------- HUD panels: red glass with corner brackets ---------- */
+#menu{position:fixed!important;inset:0!important}
+#heroBox,#side{background:linear-gradient(160deg,rgba(64,8,13,.88),rgba(24,4,7,.92))!important;border-left:none!important;
+  box-shadow:inset 0 0 0 1px rgba(255,95,86,.35),0 10px 30px rgba(0,0,0,.5)!important;clip-path:var(--notch)}
+#heroBox::before,#side::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:
+   linear-gradient(var(--ny),var(--ny)) 0 0/14px 2px no-repeat,linear-gradient(var(--ny),var(--ny)) 0 0/2px 14px no-repeat,
+   linear-gradient(var(--nr),var(--nr)) 100% 0/14px 1px no-repeat,linear-gradient(var(--nr),var(--nr)) 100% 0/1px 14px no-repeat,
+   linear-gradient(var(--nr),var(--nr)) 0 100%/14px 1px no-repeat,linear-gradient(var(--nr),var(--nr)) 0 100%/1px 14px no-repeat}
+#heroBox::after,#side::after{display:none!important}
+#bottom::before,#bottom::after{border-color:transparent!important}
+/* board zone: HUD corner brackets */
+#board::after{content:'';position:absolute;inset:6px;pointer-events:none;z-index:0;
+  background:
+   linear-gradient(var(--nc),var(--nc)) 0 0/22px 2px no-repeat,linear-gradient(var(--nc),var(--nc)) 0 0/2px 22px no-repeat,
+   linear-gradient(var(--nc),var(--nc)) 100% 0/22px 2px no-repeat,linear-gradient(var(--nc),var(--nc)) 100% 0/2px 22px no-repeat,
+   linear-gradient(var(--nc),var(--nc)) 0 100%/22px 2px no-repeat,linear-gradient(var(--nc),var(--nc)) 0 100%/2px 22px no-repeat,
+   linear-gradient(var(--nc),var(--nc)) 100% 100%/22px 2px no-repeat,linear-gradient(var(--nc),var(--nc)) 100% 100%/2px 22px no-repeat;
+  opacity:.8;filter:drop-shadow(0 0 4px rgba(94,246,255,.8))}
+.mpanel::after{background:linear-gradient(90deg,transparent 0 12%,rgba(94,246,255,.18) 12% 30%,transparent 30%) 0 92%/100% 1px no-repeat!important}
+
+/* ---------- 3D: the board and the tavern sit on tilted planes; cards rise off them ---------- */
+#main{perspective:1400px;perspective-origin:50% 30%}
+#shop{transform:rotateX(8deg);transform-origin:50% 0;transform-style:preserve-3d}
+#board{transform:rotateX(14deg);transform-origin:50% 100%;transform-style:preserve-3d}
+#board>.card,#shop>.card{transform-style:preserve-3d}
+#board>.card:hover,#shop>.card:hover{translate:0 -6px;filter:drop-shadow(0 18px 14px rgba(0,0,0,.6))}
+.dragghost{transform:translate(-50%,-50%) scale(1.1) perspective(600px) rotateX(10deg)!important;filter:drop-shadow(0 30px 24px rgba(0,0,0,.75)) brightness(1.08)!important}
+@media (max-width:760px){#board{transform:rotateX(9deg)}#shop{transform:rotateX(5deg)}}
+#menu>.mpanel{position:absolute!important;z-index:1}
+@media (max-width:760px){#endBtn:not(:disabled){background:var(--ny)!important}}
+#clog{background:linear-gradient(180deg,rgba(40,5,9,.94),rgba(16,3,5,.94))!important;box-shadow:inset 0 0 0 1px rgba(255,95,86,.4),0 10px 30px rgba(0,0,0,.5)!important;border:none!important;clip-path:var(--notch)}
+#clog .clh{color:var(--nr)!important;background:linear-gradient(90deg,rgba(255,255,255,.07),transparent)!important;box-shadow:inset 3px 0 0 var(--nr)!important;border:none!important;letter-spacing:.16em}
+#online .on-box>.mbtn:first-of-type,#online .mbtns>.mbtn:first-of-type{color:var(--ny)!important}
+#online .on-box>.mbtn:first-of-type::before,#online .on-box>.mbtn:first-of-type::after,#online .mbtns>.mbtn:first-of-type::before,#online .mbtns>.mbtn:first-of-type::after{opacity:1}
+
+/* =====================================================================
+   CARD FINISH — material, living art window, glossy stats, tier prestige,
+   animated light, holographic golden foil
+   ===================================================================== */
+@property --ra{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --hx{syntax:'<percentage>';inherits:false;initial-value:0%}
+
+/* ---- art window: bloom, rotating reticle, vignette, corner ticks ---- */
+.card:not(.spell):not(.ware) .cs{position:relative;overflow:hidden;isolation:isolate}
+.card:not(.spell):not(.ware) .cs::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 50%,color-mix(in srgb,currentColor 34%,transparent) 0,color-mix(in srgb,currentColor 10%,transparent) 22%,transparent 46%),
+    linear-gradient(currentColor,currentColor) 6% 14%/.28em .04em no-repeat,linear-gradient(currentColor,currentColor) 6% 14%/.04em .28em no-repeat,
+    linear-gradient(currentColor,currentColor) 94% 14%/.28em .04em no-repeat,linear-gradient(currentColor,currentColor) 94% 14%/.04em .28em no-repeat,
+    linear-gradient(currentColor,currentColor) 6% 86%/.28em .04em no-repeat,linear-gradient(currentColor,currentColor) 6% 86%/.04em .28em no-repeat,
+    linear-gradient(currentColor,currentColor) 94% 86%/.28em .04em no-repeat,linear-gradient(currentColor,currentColor) 94% 86%/.04em .28em no-repeat;
+  box-shadow:inset 0 0 .45em rgba(0,0,0,.55);opacity:.85;animation:csBloom 3.6s ease-in-out infinite}
+@keyframes csBloom{50%{opacity:.55}}
+.card .cs .csr{position:absolute;left:50%;top:50%;width:1.62em;height:1.62em;margin:-.81em 0 0 -.81em;border-radius:50%;pointer-events:none;z-index:0;
+  border:.035em dashed color-mix(in srgb,currentColor 60%,transparent);opacity:.75;animation:csr 16s linear infinite}
+.card .cs .csr::before{content:'';position:absolute;inset:-.16em;border-radius:50%;border:.03em solid color-mix(in srgb,currentColor 45%,transparent);border-left-color:transparent;border-right-color:transparent;animation:csr 6s linear infinite reverse}
+.card .cs .csr::after{content:'';position:absolute;left:50%;top:-.3em;width:.04em;height:.18em;margin-left:-.02em;background:currentColor;box-shadow:0 2.12em 0 currentColor;opacity:.8}
+@keyframes csr{to{transform:rotate(360deg)}}
+.card .csg{text-shadow:0 0 .22em currentColor,-.03em 0 rgba(255,40,80,.5),.03em 0 rgba(60,240,255,.5)!important;animation:csgF 4.6s ease-in-out infinite}
+@keyframes csgF{0%,100%{translate:0 .02em}50%{translate:0 -.05em}}
+.card .csg{animation-delay:calc(var(--i,0) * -.7s)}
+/* glitch tick on the glyph now and then */
+.card:nth-child(3n) .csg{animation:csgF 4.6s ease-in-out infinite,csgGl 7s steps(1,end) infinite}
+.card:nth-child(3n+1) .csg{animation:csgF 5.1s ease-in-out infinite,csgGl 9s steps(1,end) infinite 2s}
+@keyframes csgGl{0%,94%,100%{clip-path:none;filter:none}95%{clip-path:inset(0 0 55% 0);filter:hue-rotate(40deg)}96%{clip-path:inset(45% 0 0 0);transform:translateX(.05em)}97%{clip-path:none;transform:none}}
+.f-ARA .csg,.f-BIO .csg{text-shadow:none!important}
+.f-ARA .cs .csr,.f-BIO .cs .csr{border-color:rgba(255,255,255,.55)}
+.f-ARA .cs::before,.f-BIO .cs::before{opacity:.35}
+
+/* ---- material: top light, bottom shade, edge highlight, travelling light sweep ---- */
+.card .cb>.cfx-sheen{position:absolute!important;inset:0;z-index:6!important;pointer-events:none;overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,0) 16%),linear-gradient(0deg,rgba(0,0,0,.28),transparent 20%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 1px 0 0 rgba(255,255,255,.06),inset -1px 0 0 rgba(0,0,0,.35)}
+.card .cb>.cfx-sheen::after{content:'';position:absolute;top:-20%;bottom:-20%;left:-60%;width:38%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.16) 45%,rgba(255,255,255,.28) 50%,rgba(255,255,255,.16) 55%,transparent);
+  transform:skewX(-18deg) translateX(0);animation:sweep 9s ease-in-out infinite;animation-delay:calc(var(--i,0) * -1.3s)}
+.card:nth-child(2n) .cb>.cfx-sheen::after{animation-duration:11s}
+.card:nth-child(3n) .cb>.cfx-sheen::after{animation-duration:13s}
+@keyframes sweep{0%,82%{transform:skewX(-18deg) translateX(0);opacity:0}84%{opacity:1}96%{transform:skewX(-18deg) translateX(520%);opacity:1}100%{transform:skewX(-18deg) translateX(520%);opacity:0}}
+
+/* ---- stats: glossy cut plates ---- */
+.card:not(.zzz) .cf .atk,.card:not(.zzz) .cf .hp{background-image:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.12) 42%,rgba(0,0,0,0) 52%,rgba(0,0,0,.22))!important;
+  text-shadow:0 .06em 0 rgba(255,255,255,.45)!important;filter:drop-shadow(0 .08em 0 rgba(0,0,0,.55))}
+.card .cf .atk.up,.card .cf .hp.up{animation:statPop .5s ease-out}
+@keyframes statPop{40%{transform:scale(1.25);filter:brightness(1.6) drop-shadow(0 0 .3em #39ff88)}}
+
+/* ---- tier prestige: a light runs around the frame (T4+), brighter and doubled at T6–T7 ---- */
+.card>.cfx-run{display:none}
+.card:not(.spell):not(.ware).t4>.cfx-run,.card:not(.spell):not(.ware).t5>.cfx-run,.card:not(.spell):not(.ware).t6>.cfx-run,.card:not(.spell):not(.ware).t7>.cfx-run,.card:not(.spell):not(.ware).golden>.cfx-run{
+  display:block;position:absolute;inset:0;z-index:5;pointer-events:none;--b:2px;
+  clip-path:polygon(evenodd,0 0,calc(100% - var(--k)) 0,100% var(--k),100% 100%,0 100%,0 0,
+   var(--b) var(--b),var(--b) calc(100% - var(--b)),calc(100% - var(--b)) calc(100% - var(--b)),calc(100% - var(--b)) calc(var(--k) + var(--b)*.42),calc(100% - var(--k) - var(--b)*.42) var(--b),var(--b) var(--b));
+  background:conic-gradient(from var(--ra),color-mix(in srgb,var(--fc) 25%,transparent) 0deg 230deg,var(--fc) 300deg,#fff 350deg,color-mix(in srgb,var(--fc) 25%,transparent) 360deg);
+  animation:runA 4.5s linear infinite;animation-delay:calc(var(--i,0) * -.9s);filter:drop-shadow(0 0 3px var(--fc))}
+.card:not(.spell):not(.ware).t6>.cfx-run{--b:2.5px;animation-duration:3.6s;background:conic-gradient(from var(--ra),transparent 0deg 110deg,color-mix(in srgb,var(--fc) 70%,transparent) 150deg,#fff 172deg,transparent 180deg 290deg,color-mix(in srgb,var(--fc) 70%,transparent) 330deg,#fff 352deg,transparent 360deg)}
+.card:not(.spell):not(.ware).t7>.cfx-run{--b:3px;animation-duration:3s;background:conic-gradient(from var(--ra),#ff2a6d,#fcee0a,#39ff88,#02d7f2,#a66bff,#ff2a6d);filter:drop-shadow(0 0 4px rgba(255,255,255,.6))}
+@keyframes runA{to{--ra:360deg}}
+.card.t6 .cn,.card.t7 .cn{animation:nameGlow 3s ease-in-out infinite}
+@keyframes nameGlow{50%{filter:brightness(1.35) drop-shadow(0 0 .25em color-mix(in srgb,var(--fc) 80%,transparent))}}
+.card.t6 .cs::before,.card.t7 .cs::before{animation-duration:2.4s}
+
+/* ---- golden: holographic foil + sparkles ---- */
+.card:not(.spell):not(.ware).golden>.cfx-run{--b:3px;animation-duration:2.6s;background:conic-gradient(from var(--ra),#fff7a0,#f3e600,#ffb000,#fff,#f3e600,#fff7a0)!important;filter:drop-shadow(0 0 5px #f3e600)}
+.card.golden .cb>.cfx-sheen::before{content:'';position:absolute;inset:0;mix-blend-mode:screen;opacity:.38;
+  background:linear-gradient(115deg,transparent 15%,rgba(255,0,140,.35) 30%,rgba(255,230,0,.35) 42%,rgba(0,255,190,.35) 54%,rgba(80,120,255,.35) 66%,transparent 82%) var(--hx) 0/260% 100%;
+  animation:holo 5s linear infinite}
+@keyframes holo{to{--hx:260%}}
+.card.golden .cb>.cfx-sheen{background:
+   radial-gradient(circle,rgba(255,255,255,.95) 0 .06em,transparent .1em) 18% 22%/100% 100% no-repeat,
+   radial-gradient(circle,rgba(255,250,190,.9) 0 .05em,transparent .09em) 78% 34%/100% 100% no-repeat,
+   radial-gradient(circle,rgba(255,255,255,.9) 0 .05em,transparent .09em) 30% 70%/100% 100% no-repeat,
+   radial-gradient(circle,rgba(255,250,190,.9) 0 .06em,transparent .1em) 84% 80%/100% 100% no-repeat,
+   linear-gradient(180deg,rgba(255,240,150,.16),rgba(255,255,255,0) 18%),linear-gradient(0deg,rgba(0,0,0,.25),transparent 20%);
+  animation:twinkle 2.2s steps(4,end) infinite}
+@keyframes twinkle{0%{background-position:18% 22%,78% 34%,30% 70%,84% 80%,0 0,0 0}25%{background-position:60% 12%,22% 48%,72% 62%,40% 88%,0 0,0 0}50%{background-position:40% 30%,88% 16%,14% 82%,64% 56%,0 0,0 0}75%{background-position:82% 66%,36% 24%,50% 44%,20% 30%,0 0,0 0}}
+
+/* ---- spell & ware cards: matching finish ---- */
+.card.qhack .qh-pkg{position:relative;overflow:hidden}
+.card.qhack .qh-pkg::after{content:'';position:absolute;top:-30%;bottom:-30%;left:-50%;width:30%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.14) 50%,transparent);transform:skewX(-18deg);animation:sweep 10s ease-in-out infinite;animation-delay:calc(var(--i,0) * -1.7s)}
+.card.qhack .qh-legs{animation:legs 2.4s ease-in-out infinite}
+@keyframes legs{50%{filter:brightness(1.35) drop-shadow(0 0 3px rgba(252,238,10,.6))}}
+.card.ware{animation:wareGlow 3.2s ease-in-out infinite}
+@keyframes wareGlow{50%{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--fc,#02d7f2) 70%,transparent))}}
+
+/* hand cards in the fan stay calm; motion only when lifted */
+#hand>.card:not(:hover) .cb>.cfx-sheen::after,#hand>.card:not(:hover) .csr{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.card *,.card{animation:none!important}}
+
+/* scan bar sweeping down the art window */
+.card .cs .css{position:absolute;left:0;right:0;top:-30%;height:22%;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,currentColor 22%,transparent) 70%,color-mix(in srgb,currentColor 55%,transparent) 96%,transparent);
+  animation:scanDown 3.8s linear infinite;animation-delay:calc(var(--i,0) * -.43s);opacity:.6}
+@keyframes scanDown{to{top:110%}}
+.f-ARA .cs .css,.f-BIO .cs .css{opacity:.25}
+/* cards sit above the table */
+.card:not(.dragghost){box-shadow:0 .45em .9em rgba(0,0,0,.45)}
+#hand>.card{box-shadow:0 .3em .8em rgba(0,0,0,.5)}
 </style></head><body>
-<div id="menu" class="screen hidden"><div class="mlogo"><span class="m1">NIGHT CITY</span><span class="m2">BATTLEGROUNDS</span></div><div class="mbtns"><div class="mdiff" id="mDiff"><button data-d="0">NORMAL</button><button data-d="1">HARD</button><button data-d="2">VERY HARD</button></div><button class="mbtn" id="mPlay">PLAY</button><button class="mbtn mini hidden" id="mBots">PLAY WITH BOTS</button><div class="botpanel hidden" id="botPanel"><button class="mbtn" id="mBotGo">START</button></div><button class="mbtn sec" id="mTut">TUTORIAL</button><button class="mbtn sec" id="mLib">LIBRARY</button><button class="mbtn sec" id="mRules">HOW TO PLAY</button></div></div>
+<div id="menu" class="screen hidden"><div class="mpanel"><div class="mlogo"><span class="m1" data-t="NIGHT CITY">NIGHT CITY</span><span class="m2"><i>B</i><i>A</i><i>T</i><i>T</i><i>L</i><i>E</i><i>G</i><i>R</i><i>O</i><i>U</i><i>N</i><i>D</i><i>S</i></span></div><div class="mbtns"><div class="mdiff" id="mDiff"><button data-d="0">NORMAL</button><button data-d="1">HARD</button><button data-d="2">VERY HARD</button></div><button class="mbtn" id="mPlay">PLAY</button><button class="mbtn mini hidden" id="mBots">PLAY WITH BOTS</button><div class="botpanel hidden" id="botPanel"><button class="mbtn" id="mBotGo">START</button></div><button class="mbtn sec" id="mTut">TUTORIAL</button><button class="mbtn sec" id="mLib">LIBRARY</button><button class="mbtn sec" id="mRules">HOW TO PLAY</button></div></div></div>
 <div id="library" class="screen hidden"></div>
 <div id="rules" class="screen hidden"></div>
 <div id="online" class="screen hidden"></div>
@@ -3417,7 +3767,7 @@ function kwLine(m, c) {
 }
 function minionEl(m, z, i, extra) {
   const c = B.CARDS[m.id];
-  const cls = ['card', 'f-' + (c.tribe || 'N')]; if (m.golden) cls.push('golden');
+  const cls = ['card', 'f-' + (c.tribe || 'N'), 't' + c.tier]; if (m.golden) cls.push('golden');
   for (const k of ['taunt', 'shield', 'reborn', 'stealth']) if (m[k]) cls.push(k);
   if (extra && extra.cls) cls.push(extra.cls);
   const g = m.golden ? 2 : 1;
@@ -3434,7 +3784,7 @@ function minionEl(m, z, i, extra) {
   for (const k of ['venom', 'windfury', 'cleave', 'first', 'smash']) if (m[k]) cls.push(k);
   const img = artUrl(m.id);
   const badges = BADGES.filter(b => m[b[0]]).map(b => `<i class="bdg b-${b[0]}" data-tip="${tt(B.KW[b[0]], B.KW_DESC[B.KW[b[0]]])}">${b[1]}</i>`).join('');
-  return `<div class="${cls.join(' ')}" data-z="${z}" data-i="${i}" ${m.uid ? `data-uid="${m.uid}"` : ''}><div class="fx-taunt"></div><div class="fx-shield"></div><div class="fx-reborn"></div><div class="fx-psycho"></div><div class="fx-frame"></div><i class="tcorner" data-tip="${tt('Tier ' + c.tier, 'Appears in the Tavern from Tavern Tier ' + c.tier + '.')}"><b>${c.tier}</b></i><div class="cb"><div class="fx-venom"></div><div class="fx-wind"></div><div class="ch"><span class="ct" data-tip="${tt('Tier ' + c.tier, 'Appears in the Tavern from Tavern Tier ' + c.tier + '.')}">${c.tier}</span><span class="cn ${c.name.length > 15 ? 'nl2' : c.name.length > 11 ? 'nl' : ''}">${c.name}</span></div>${img ? `<div class="cimg" style="background-image:url(${img})"></div>` : `<div class="cs">${sym(m.id)}</div>`}<div class="ck">${kwify(kwLine(m, c))}</div><div class="cx ${(B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')).length + (m.ware || []).length * 18 > 110 ? 'xlong' : (B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')).length > 75 ? 'long' : ''}"><span class="tx">${kwify((B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')))}</span>${att}</div>${hum}<div class="cf"><span class="atk ${au} ${String(m.atk).length > 2 ? 'd3' : ''}" data-tip="${tt('Attack ' + m.atk, 'Damage this deals when it attacks or is attacked.')}">${m.atk}</span><span class="ctr" data-tip="${c.tribe ? tt(B.TRIBES[c.tribe].name, FDESC[c.tribe]) : tt('Neutral', 'Belongs to no faction.')}">${c.tribe ? B.TRIBES[c.tribe].name : 'Neutral'}</span><span class="hp ${hu} ${String(m.hp).length > 2 ? 'd3' : ''}" data-tip="${tt('Health ' + m.hp, 'Damage this can take before it dies.')}">${m.hp}</span></div></div><div class="bdgs">${badges}</div></div>`;
+  return `<div class="${cls.join(' ')}" data-z="${z}" data-i="${i}" style="--i:${(m.uid || i || 0) % 9}" ${m.uid ? `data-uid="${m.uid}"` : ''}><div class="fx-taunt"></div><div class="fx-shield"></div><div class="fx-reborn"></div><div class="fx-psycho"></div><div class="fx-frame"></div><i class="cfx-run"></i><i class="tcorner" data-tip="${tt('Tier ' + c.tier, 'Appears in the Tavern from Tavern Tier ' + c.tier + '.')}"><b>${c.tier}</b></i><div class="cb"><div class="fx-venom"></div><div class="fx-wind"></div><div class="ch"><span class="ct" data-tip="${tt('Tier ' + c.tier, 'Appears in the Tavern from Tavern Tier ' + c.tier + '.')}">${c.tier}</span><span class="cn ${c.name.length > 15 ? 'nl2' : c.name.length > 11 ? 'nl' : ''}">${c.name}</span></div>${img ? `<div class="cimg" style="background-image:url(${img})"></div>` : `<div class="cs"><i class="css"></i><i class="csr"></i><i class="csg">${sym(m.id)}</i></div>`}<div class="ck">${kwify(kwLine(m, c))}</div><div class="cx ${(B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')).length + (m.ware || []).length * 18 > 110 ? 'xlong' : (B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')).length > 75 ? 'long' : ''}"><span class="tx">${kwify((B.cardText(c, m.golden, m, me) + (m.relic && B.CARDS[m.relic] ? ' Relic of ' + B.CARDS[m.relic].name + ': ' + B.cardText(B.CARDS[m.relic], false, m, me) : '')))}</span>${att}</div>${hum}<div class="cf"><span class="atk ${au} ${String(m.atk).length > 2 ? 'd3' : ''}" data-tip="${tt('Attack ' + m.atk, 'Damage this deals when it attacks or is attacked.')}">${m.atk}</span><span class="ctr" data-tip="${c.tribe ? tt(B.TRIBES[c.tribe].name, FDESC[c.tribe]) : tt('Neutral', 'Belongs to no faction.')}">${c.tribe ? B.TRIBES[c.tribe].name : 'Neutral'}</span><span class="hp ${hu} ${String(m.hp).length > 2 ? 'd3' : ''}" data-tip="${tt('Health ' + m.hp, 'Damage this can take before it dies.')}">${m.hp}</span></div><i class="cfx-sheen"></i></div><div class="bdgs">${badges}</div></div>`;
 }
 function spellEl(sp, z, i, cost) {
   const s = B.SPELLS[sp.id];
